@@ -1,6 +1,6 @@
 # Project Analysis — Secure Applicant & New-Hire Onboarding Portal
 
-Status: **Phase A — analysis and design, awaiting review.** No application code has been written yet.
+Status: **Phase B (foundation) delivered.** Phase A analysis approved, with two changes requested by the client: Laravel 12 (see §1.1) and no Node.js toolchain (see §2).
 Date of analysis: 2026-11-03.
 
 Companion documents:
@@ -17,15 +17,15 @@ Companion documents:
 | Repository | `magashish/hrform`, branch `claude/new-session-3hx71o`. **Empty**: no commits, no files, no existing schema/routes/auth/tests to preserve. |
 | PHP (container) | 8.3.6 CLI. Extensions present: `pdo_pgsql`, `pdo_mysql`, `pdo_sqlite`, `intl`, `mbstring`, `fileinfo`, `gd`, `zip`, `sodium`, `openssl`, `redis`, `pcntl`. |
 | Composer | 2.8.12 |
-| Node / npm | 22.x / 10.x (for Vite asset build only) |
+| Node / npm | Present in the container but **not used**: the project has no Node dependency. |
 | Databases available locally | PostgreSQL 16 client; SQLite via PDO. No MySQL client. |
 | Production hosting | **Unknown** (see Open Question 12). Nothing is assumed about host, cron path, queue driver or object storage. |
 
-### 1.1 Laravel version — "Laravel 10.5"
+### 1.1 Laravel version (decided)
 
-- `laravel/framework` **v10.5.0** does exist (March 2023). It is an early patch release that is missing about three years of bug and security fixes. The latest 10.x patch on Packagist today is **v10.50.4**.
-- **Recommendation:** constrain to `laravel/framework: ^10.48` (it resolves to the latest 10.x patch). This reads "10.5" as "Laravel 10" rather than pinning patch 10.5.0. PHP 8.3 is supported by Laravel 10.
-- **Material risk:** upstream security support for Laravel 10 ended in early 2025. Laravel 12/13 are current. A new system that holds SSNs and identity documents should ideally run on a supported framework. I will build on Laravel 10 as instructed. The code will stay conventional (no deprecated APIs, few packages) so that an upgrade to a supported major is a routine task. **The client needs to confirm this explicitly (Open Question 0).**
+- The client first said "Laravel 10.5", then approved **Laravel 11.57.1**. On checking, `composer audit` reported **5 security advisories against 11.57.1** (including a *critical* TokenGuard authentication bypass and a *high* CRLF injection in the default `email` validation rule). They are fixed only on 12.x/13.x. Laravel 11 is past upstream security support, so they will never be fixed on 11.
+- **Decision (client-approved, 2026-11-03): Laravel 12, `laravel/framework ^12.70.2`** (installed: v12.70.2) on PHP 8.2+ (8.3 in development). `composer audit` is clean at this version.
+- Run `composer audit` in CI and before each deployment, and keep to the latest 12.x patch.
 
 ---
 
@@ -40,14 +40,14 @@ Key technology choices (deliberately few packages):
 
 | Concern | Choice | Justification |
 |---|---|---|
-| Frontend | Blade + Tailwind CSS (Vite) + a small amount of Alpine.js | Accessible, mobile-first and server-rendered, with no SPA/API surface to secure. Upload progress uses a small JS helper. |
+| Frontend | Blade templates + hand-written CSS (`public/css/app.css`) + small vanilla JS files in `public/js` | **No Node.js/npm/Vite** (client requirement): Composer installs everything and there is no asset build step. Server-rendered, accessible and mobile-first. A strict CSP forbids inline scripts/styles. |
 | HR auth + 2FA | **Laravel Fortify** (first-party) | Maintained TOTP 2FA, encrypted secrets and recovery codes, password confirmation, rate-limited login. Public registration is disabled. |
 | Applicant auth | Custom service + middleware (no package) | The flow is specific to this product: invitation code, email OTP, then a bound session. |
 | Queue | Laravel queue, `database` driver by default; Redis optional | No assumption that Redis exists in production. |
 | Scheduler | Laravel Scheduler (`schedule:run` every minute via host cron) | Expiry, reminders, retention, ZIP cleanup. |
 | Storage | Dedicated **private** disk (`documents`), local or S3-compatible | No public URLs. Every file goes through an authorizing controller. |
 | ZIP | PHP `ZipArchive` (ext-zip) | No extra dependency. |
-| Tests / quality | PHPUnit (Laravel default), Laravel Pint, Larastan (dev only) | Static analysis is worthwhile for a security-sensitive app. |
+| Tests / quality | PHPUnit (Laravel default), Laravel Pint | Larastan was planned but could not be downloaded in the build environment; it can be added later (`composer require --dev larastan/larastan`). |
 | Malware scan | `FileScanner` interface: `NullScanner` (default, records "not scanned") and optional ClamAV (`clamd`) adapter | Configurable. Absence of a scanner is documented as a deployment risk. |
 | E-signature | `SignatureProvider` interface: `DisabledSignatureProvider` (default) and `FakeSignatureProvider` (tests only) | No provider is selected, so no credentials are assumed. |
 
@@ -106,7 +106,7 @@ submitted | under_review → correction_required → in_progress → submitted �
 
 | # | Assumption | Where configured |
 |---|---|---|
-| A1 | Laravel ^10.48 on PHP 8.3 (see §1.1). | `composer.json` |
+| A1 | Laravel ^12.70.2 on PHP 8.2+ (see §1.1). | `composer.json` |
 | A2 | PostgreSQL 14+ or MySQL 8 in production. Development uses PostgreSQL. Tests use SQLite in-memory for speed, plus an optional PostgreSQL CI job. | `.env` |
 | A3 | All HR users have identical permissions, including settings, template management and HR-user management. No hidden admin tier. Sensitive actions (settings, user management, deletion, SSN reveal) require recent password confirmation and are audited. | Policies |
 | A4 | A "technical operator" has **server access only** (deploy, `.env`, artisan). They have no in-app role. The first HR user is created with `php artisan portal:hr-user:create`. | README |
@@ -128,7 +128,7 @@ submitted | under_review → correction_required → in_progress → submitted �
 
 | Risk | Severity | Mitigation / owner |
 |---|---|---|
-| Laravel 10 is past upstream security support | High | Client decision (Open Question 0). Keep code upgrade-friendly. Monitor advisories (`composer audit` in CI). |
+| Framework vulnerabilities | Medium | Resolved for now by moving to Laravel 12 (Open Question 0). Keep patching; run `composer audit` in CI. |
 | I-9 legal requirements (electronic signature, and the fact that physical document examination in Section 2 is the employer's responsibility outside this portal) | High | Wet-sign default. Approval record required before e-sign. The portal handles applicant-side completion only. Legal sign-off is the client's responsibility. |
 | Collection of SSNs and identity documents | High | App-level encryption of form data, private storage, masking, audited reveal, minimal retention, no emailing of content. |
 | Email-only identity verification | Medium | Documented limitation. Optional out-of-band factor. Short sessions. |
@@ -143,16 +143,16 @@ submitted | under_review → correction_required → in_progress → submitted �
 
 ## 5. Phased implementation plan
 
-Each phase ends with: tests passing (`php artisan test`), Pint + Larastan clean, a list of changed files, outstanding issues, and a commit/push to the working branch.
+Each phase ends with: tests passing (`php artisan test`), Pint clean, a list of changed files, outstanding issues, and a commit/push to the working branch.
 
 ### Phase A — Analysis and design (this phase)
 `PROJECT_ANALYSIS.md`, `docs/architecture.md`, `docs/signature-compliance-decisions.md`, `OPEN_QUESTIONS.md`, `README.md` (stub). **Stop for review.**
 
 ### Phase B — Foundation
-- Scaffold Laravel ^10.48, configure private `documents` disk, security headers middleware, session hardening, production safety checks (`APP_DEBUG` off, HTTPS forced).
+- Scaffold Laravel ^12.70.2 (no Node toolchain), configure private `documents` disk, security headers middleware, session hardening, production safety checks (`APP_DEBUG` off, HTTPS forced).
 - Fortify: login, mandatory TOTP 2FA enrollment, recovery codes, password confirmation; no registration.
 - `portal:hr-user:create` command; dev-only seeder that reads credentials from env (refuses to run in production).
-- Audit foundation: `audit_events`, `AuditLogger` service with **allowlisted** metadata keys per event, append-only model guards (plus a PostgreSQL trigger when that driver is used).
+- Audit foundation: `audit_events`, `AuditLogger` service with **allowlisted** metadata keys per event, append-only model guards (plus a PostgreSQL trigger when that driver is used). **Delivered** (see §7).
 - Policies skeleton, `EnsureTwoFactorEnabled` middleware.
 - Tests: login, 2FA gate, unauthenticated denial, audit sanitization.
 
@@ -195,8 +195,32 @@ Each phase ends with: tests passing (`php artisan test`), Pint + Larastan clean,
 ## 6. What needs client input before or during build
 
 See `OPEN_QUESTIONS.md`. Items that **block specific phases** (other work proceeds with configurable defaults):
-- Phase B: Open Question 0 (Laravel 10 vs supported major), 12 (hosting/DB).
+- Phase B: ~~Open Question 0~~ (resolved: Laravel 12), 12 (hosting/DB).
 - Phase C: Open Questions 3 (consent wording; a placeholder is used meanwhile), 7 (identity verification method).
 - Phase D: Open Questions 1, 2, 6 (forms, fields, naming). The engine is built generically; real templates are loaded once supplied.
 - Phase F: Open Questions 8, 10, 11 (reminders, retention trigger, backups).
 - Any `provider_esign` use: Open Questions 4, 14.
+
+---
+
+## 7. Phase B delivery notes (2026-11-03)
+
+Delivered:
+- Laravel 12.70.2 + Fortify 1.41 scaffold. The Node/Vite/Tailwind files were removed; styling is `public/css/app.css`.
+- HR authentication under `/hr`: login, password reset, password change, password confirmation for sensitive actions. **Public registration disabled**; passkeys disabled.
+- **Mandatory TOTP 2FA**: users without confirmed 2FA are redirected to enrolment from every HR page. Disabling 2FA is blocked while `HR_2FA_REQUIRED=true`. Recovery codes are shown once, after confirmation or regeneration.
+- Disabled HR accounts cannot log in (same generic error as a bad password). Active sessions end on the next request, and database sessions are deleted.
+- The password-reset form gives an identical response for known and unknown emails and is rate-limited per IP. The reset URL carries no email address.
+- HR user management, available to every HR user (equal permissions): list, create (the new user is emailed a set-password link; HR never sets another user's password), disable/enable (cannot disable yourself). Writes require password re-confirmation.
+- `php artisan portal:hr-user:create` for the technical operator. The password is prompted, never passed as an argument.
+- Development seeder (`DEV_HR_EMAIL`/`DEV_HR_PASSWORD`) refuses to run in production.
+- Audit foundation: declared-event catalogue (`config/audit.php`), per-event metadata allowlist, scalar-only values, truncation, append-only model, PostgreSQL trigger (updates always blocked, deletes only with `SET LOCAL app.audit_purge = 'on'`). Covers login, failure, lockout, logout, 2FA lifecycle, password reset/change and HR user changes.
+- Security baseline: strict CSP with no inline script/style, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cache-Control: no-store`, optional HSTS. Sessions are encrypted, HttpOnly, SameSite=Lax, secure in production, with a 30-minute idle timeout. HTTPS is forced and debug is forced off in production. Sensitive inputs are never flashed back to the session.
+- Private `documents` and `exports` disks (not web-served, 0600/0700 permissions, S3-ready).
+
+Tests: 47 (all pass on PostgreSQL 16; on SQLite 44 pass and 3 PostgreSQL-trigger tests are skipped).
+
+Outstanding / carried forward:
+- Larastan not installed (download blocked in build environment).
+- HR "settings" UI arrives with the settings module (Phase D/F).
+- Audit-log retention job (uses the purge flag) arrives in Phase F.

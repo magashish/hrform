@@ -4,7 +4,7 @@ Priority: **P0** blocks a build phase or a production launch. **P1** is needed b
 
 | # | Pri | Question | Interim default | Blocks |
 |---|---|---|---|---|
-| 0 | P0 | Laravel 10 no longer receives upstream security fixes. Do you accept Laravel 10 (latest 10.x patch, not 10.5.0) for a system holding SSNs and ID documents, or may we build on a currently supported major (Laravel 12/13)? | Laravel ^10.48, written to be upgrade-friendly | Phase B |
+| 0 | ✅ | ~~Framework version.~~ **Resolved 2026-11-03:** Laravel 12 (`^12.70.2`). 11.57.1 was rejected because of 5 unfixed security advisories. No Node.js toolchain. | — | — |
 | 1 | P0 | Complete inventory of onboarding forms, with the current official/sample PDFs for each (I-9, SSA-89, W-4, state withholding, direct deposit, handbook acknowledgement, etc.). | Generic template engine; I-9 and SSA-89 templates seeded with no PDF attached | Phase D content |
 | 2 | P0 | For each form: online vs. print/upload; fields, validation and required status; which supporting uploads are required; allowed file types and max size; whether online answers should pre-fill the official PDF. | Upload-based; PDF/JPEG/PNG, 10 MB; no PDF pre-fill | Phase D content |
 | 3 | P0 | Final disclosure/consent wording (after HR consultant review). Must applicants re-acknowledge when the wording changes mid-onboarding? | Placeholder marked DRAFT; re-acknowledgement required on new version | Production |
@@ -19,7 +19,7 @@ Priority: **P0** blocks a build phase or a production launch. **P1** is needed b
 | 12 | P0 | Hosting provider/region, PHP and database versions, file storage (local disk vs. S3-compatible bucket with encryption), mail provider, queue/cron availability, and whether TLS is terminated in front of the app. | PostgreSQL; private local disk in dev; `database` queue | Phase B deploy |
 | 13 | P1 | Is malware scanning available or required (e.g. ClamAV on the host, or a cloud scanning service)? | Strict file-type validation only; marked "not scanned" | Production risk sign-off |
 | 14 | P2 | Is a future e-sign provider (DocuSign, Adobe Acrobat Sign) or HRIS integration planned? Who holds the licences? | Neither; interface stub only | — |
-| 15 | P1 | HR account management: may any HR user create/disable other HR users in the app (all users have equal permissions), or should only the technical operator do it via the command line? | Any HR user, with password re-confirmation, audited | Phase B |
+| 15 | P1 | HR account management: may any HR user create/disable other HR users in the app (all users have equal permissions), or should only the technical operator do it via the command line? | **Implemented:** any HR user, with password re-confirmation, audited; cannot disable self. Can be restricted later. | — |
 | 16 | P1 | Should IP address and browser user-agent be recorded on consent and audit records? | Yes, as security metadata | Phase B |
 | 17 | P1 | Should HR be able to see full SSNs on screen, or only masked SSNs plus the downloaded document? | Masked; audited "reveal" with password confirmation | Phase E |
 | 18 | P2 | Should superseded (corrected) document versions be deleted immediately, or kept until the packet's retention purge? | Kept until purge | — |

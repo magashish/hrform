@@ -46,8 +46,8 @@ Trust rules:
 
 | # | Module | Main classes (planned) |
 |---|---|---|
-| 1 | HR auth & accounts | Fortify actions, `HrUserController`, `portal:hr-user:create` |
-| 2 | HR 2FA | Fortify TOTP, `EnsureTwoFactorEnabled` middleware |
+| 1 | HR auth & accounts | Fortify actions, `HrUserController`, `HrUserService`, `HrUserPolicy`, `portal:hr-user:create` |
+| 2 | HR 2FA | Fortify TOTP, `EnsureTwoFactorEnabled`, `PreventTwoFactorDisable` middleware, `TwoFactorSetupController` |
 | 3 | Applicants | `Applicant` model, `ApplicantController`, `ApplicantPolicy`, `ApplicantProgressService` |
 | 4 | Invitations | `InvitationService`, `ApplicantInvitation`, `InvitationCode` (generate/HMAC), `ApplicantOtpService` |
 | 5 | Consent | `ConsentVersion`, `ApplicantConsent`, `EnsureConsentAcknowledged` middleware |
