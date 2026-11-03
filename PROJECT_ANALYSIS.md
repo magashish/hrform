@@ -1,0 +1,202 @@
+# Project Analysis — Secure Applicant & New-Hire Onboarding Portal
+
+Status: **Phase A — analysis and design, awaiting review.** No application code has been written yet.
+Date of analysis: 2026-11-03.
+
+Companion documents:
+- `docs/architecture.md` — ERD, module map, route map, data flows, trust boundaries.
+- `docs/signature-compliance-decisions.md` — signature-mode decision record (initial defaults).
+- `OPEN_QUESTIONS.md` — prioritized client decisions. This analysis does not answer them.
+
+---
+
+## 1. Discovered stack and current state
+
+| Item | Finding |
+|---|---|
+| Repository | `magashish/hrform`, branch `claude/new-session-3hx71o`. **Empty**: no commits, no files, no existing schema/routes/auth/tests to preserve. |
+| PHP (container) | 8.3.6 CLI. Extensions present: `pdo_pgsql`, `pdo_mysql`, `pdo_sqlite`, `intl`, `mbstring`, `fileinfo`, `gd`, `zip`, `sodium`, `openssl`, `redis`, `pcntl`. |
+| Composer | 2.8.12 |
+| Node / npm | 22.x / 10.x (for Vite asset build only) |
+| Databases available locally | PostgreSQL 16 client; SQLite via PDO. No MySQL client. |
+| Production hosting | **Unknown** (see Open Question 12). Nothing is assumed about host, cron path, queue driver or object storage. |
+
+### 1.1 Laravel version — "Laravel 10.5"
+
+- `laravel/framework` **v10.5.0** does exist (March 2023). It is an early patch release that is missing about three years of bug and security fixes. The latest 10.x patch on Packagist today is **v10.50.4**.
+- **Recommendation:** constrain to `laravel/framework: ^10.48` (it resolves to the latest 10.x patch). This reads "10.5" as "Laravel 10" rather than pinning patch 10.5.0. PHP 8.3 is supported by Laravel 10.
+- **Material risk:** upstream security support for Laravel 10 ended in early 2025. Laravel 12/13 are current. A new system that holds SSNs and identity documents should ideally run on a supported framework. I will build on Laravel 10 as instructed. The code will stay conventional (no deprecated APIs, few packages) so that an upgrade to a supported major is a routine task. **The client needs to confirm this explicitly (Open Question 0).**
+
+---
+
+## 2. Proposed architecture (summary)
+
+A monolithic Laravel application with server-rendered Blade views. It has two separate front doors:
+
+1. **HR area** (`/hr/*`): authenticated HR users (`users` table, `web` guard). Two-factor authentication is mandatory.
+2. **Applicant portal** (`/portal/*`): uses no passwords. Access is by invitation code plus email one-time passcode (OTP). Every request is checked against a short-lived applicant session that is bound to the applicant and the invitation.
+
+Key technology choices (deliberately few packages):
+
+| Concern | Choice | Justification |
+|---|---|---|
+| Frontend | Blade + Tailwind CSS (Vite) + a small amount of Alpine.js | Accessible, mobile-first and server-rendered, with no SPA/API surface to secure. Upload progress uses a small JS helper. |
+| HR auth + 2FA | **Laravel Fortify** (first-party) | Maintained TOTP 2FA, encrypted secrets and recovery codes, password confirmation, rate-limited login. Public registration is disabled. |
+| Applicant auth | Custom service + middleware (no package) | The flow is specific to this product: invitation code, email OTP, then a bound session. |
+| Queue | Laravel queue, `database` driver by default; Redis optional | No assumption that Redis exists in production. |
+| Scheduler | Laravel Scheduler (`schedule:run` every minute via host cron) | Expiry, reminders, retention, ZIP cleanup. |
+| Storage | Dedicated **private** disk (`documents`), local or S3-compatible | No public URLs. Every file goes through an authorizing controller. |
+| ZIP | PHP `ZipArchive` (ext-zip) | No extra dependency. |
+| Tests / quality | PHPUnit (Laravel default), Laravel Pint, Larastan (dev only) | Static analysis is worthwhile for a security-sensitive app. |
+| Malware scan | `FileScanner` interface: `NullScanner` (default, records "not scanned") and optional ClamAV (`clamd`) adapter | Configurable. Absence of a scanner is documented as a deployment risk. |
+| E-signature | `SignatureProvider` interface: `DisabledSignatureProvider` (default) and `FakeSignatureProvider` (tests only) | No provider is selected, so no credentials are assumed. |
+
+Full module boundaries, ERD and trust boundaries: `docs/architecture.md`.
+
+### 2.1 Applicant access design (recommended)
+
+1. HR creates the applicant (first name, last name, email) and issues an invitation.
+2. The system generates a **160-bit random code** (Crockford base32, grouped for manual entry, e.g. `K7QM-…`). Only `HMAC-SHA256(app_key_derived_secret, code)` is stored. A keyed hash allows indexed lookup without storing the code. The raw code exists only in the queued email payload and is never logged or shown to HR again.
+3. The email links to `/portal/access#<code>`. The code sits in the URL **fragment**, which browsers never send to the server, so it stays out of access logs, proxies and Referer headers. A few lines of JS move it into a POST form. Without JS the applicant pastes the code manually.
+4. After a valid code, the applicant confirms their email address. A 6-digit OTP (hashed, 10-minute expiry, 5 attempts) is sent to the **email on file** whatever was typed, and the screen always shows the same generic message. This prevents enumeration.
+5. On successful OTP the session ID is regenerated. The session stores `applicant_id`, `invitation_id`, `verified_at`. Middleware re-checks on **every request** that the invitation is not revoked or expired, and enforces an idle timeout (default 30 min) and an absolute timeout (default 8 h).
+6. Applicants can return while the code is valid; each return requires a fresh OTP. **Reissue** revokes any active invitation and creates a new one. All progress lives on the applicant and their documents, never on the invitation, so it is preserved.
+7. Code and OTP endpoints are rate-limited by IP and by invitation. Failures are audited (no raw values) and get identical generic responses.
+
+**Honest limitation:** the invitation and the OTP go to the same mailbox, so email OTP is **not an independent second factor**. It protects against leaked or forwarded links and casual misuse, not against a compromised mailbox. An optional out-of-band factor (for example an HR-communicated PIN, or a date of birth HR entered) can be enabled by configuration if the client wants it (Open Question 7). The prompt also says "single-use" while requiring resume. I read this as: the code is reusable until expiry or revocation, with each use gated by a fresh OTP. The alternative is listed in Open Question 7.
+
+### 2.2 Documents, forms and signatures
+
+- **Templates** (`document_templates`) define: input mode (`online_form`, `wet_signature_upload`, `upload_only`, `acknowledgement`), signature mode (`none`, `wet_signature_upload`, `provider_esign`), required flag, allowed MIME/extension list, max size, supporting-upload requirements, filename pattern override, and an optional blank/print PDF asset.
+- **Fields** (`document_fields`) use a closed set of field types (text, textarea, date, email, phone, select, radio, checkbox, number, ssn, attestation checkbox). Their config JSON is validated against a schema per type, so arbitrary rules or HTML are never trusted. Each field type maps to server-side Laravel validation rules.
+- **Answers** are stored in `applicant_documents.form_data` with Laravel's `encrypted:array` cast (application-level encryption, AES-256-CBC with MAC). They are never logged and never put in emails. SSN-type fields are masked in HR views until HR explicitly reveals them (each reveal is audited).
+- **Wet signature:** the applicant downloads the template's blank PDF, prints, signs, scans/photos, and uploads. Clear instructions are shown. The upload becomes a new `document_version`.
+- **Pre-filling official PDFs** (for example the I-9 fillable PDF) from online answers is **out of initial scope**. It needs a PDF library and per-form field mapping, and the official forms change version. See Open Question 2.
+- **I-9 and SSA-89 default to `wet_signature_upload`.** Changing any template to `provider_esign` requires a recorded `signature_mode_approvals` entry (who authorized it, reference to the written approval, when, who recorded it). The `provider_esign` mode stays unavailable while the provider is `disabled`.
+- The portal does not implement an in-house drawn or typed signature pad.
+
+### 2.3 Status model
+
+Applicant status is **derived** from assigned required documents plus explicit HR lifecycle actions, and is recomputed by `ApplicantProgressService` after every document transition:
+
+`invited → in_progress → (correction_required ⇄ in_progress) → submitted → ready_for_download → transferred → retention_pending → deleted`
+
+Document status uses an explicit transition map in `DocumentStateMachine`. Illegal transitions throw and are never written. Controllers never set `status` directly.
+
+```
+not_started → in_progress → awaiting_wet_signature_upload | awaiting_supporting_files → submitted
+submitted → under_review → approved → complete
+submitted | under_review → correction_required → in_progress → submitted …
+```
+
+`ready_for_download` = every required document `approved`/`complete`. `transferred` is set only by an explicit HR action (records who/when) and starts the retention clock.
+
+### 2.4 Retention (proposed, to be confirmed)
+
+- Trigger: HR marks the packet "downloaded and transferred to HR system" → `deletion_due_at = now + RETENTION_DAYS` (default **60, the configured maximum**; values above 60 are rejected unless `RETENTION_ALLOW_OVER_60=true` is set after written approval).
+- Separate, configurable **abandoned-application** policy (disabled by default, since it is not approved). Invitation expiry alone never deletes data.
+- `legal_hold` flag on an applicant blocks every purge path.
+- Command `portal:retention:purge` with `--dry-run` (report only). Automatic purge is **disabled by default** (`RETENTION_AUTO_PURGE=false`) until the client has seen dry-run reports in production.
+- Purge order: delete file binaries (versions, supporting files, signature artifacts, temp ZIPs) → verify deletion → delete DB rows (cascading) → write a `retention_events` row that references only a random `applicant_ref` UUID. Audit events reference only that UUID, never names or emails.
+- Backups: live purge does not remove data from existing backups, which persist until they expire. Backup retention is a client decision and is not hard-coded.
+
+---
+
+## 3. Assumptions (safe defaults, all configurable)
+
+| # | Assumption | Where configured |
+|---|---|---|
+| A1 | Laravel ^10.48 on PHP 8.3 (see §1.1). | `composer.json` |
+| A2 | PostgreSQL 14+ or MySQL 8 in production. Development uses PostgreSQL. Tests use SQLite in-memory for speed, plus an optional PostgreSQL CI job. | `.env` |
+| A3 | All HR users have identical permissions, including settings, template management and HR-user management. No hidden admin tier. Sensitive actions (settings, user management, deletion, SSN reveal) require recent password confirmation and are audited. | Policies |
+| A4 | A "technical operator" has **server access only** (deploy, `.env`, artisan). They have no in-app role. The first HR user is created with `php artisan portal:hr-user:create`. | README |
+| A5 | 2FA (TOTP) is **mandatory** for HR. Users without 2FA are forced into enrollment before any HR page. | `HR_2FA_REQUIRED=true` |
+| A6 | Invitation expiry is 7 days. Reminders default to 3 days and 1 day before expiry, plus an "incomplete" reminder at most every 3 days. All configurable, and all off if set to empty. | Settings / `.env` |
+| A7 | HR notifications go to all active HR users by default, or to a configured distribution address. | Settings |
+| A8 | Filename pattern `{last_name}_{first_name}_{document_type}_{date}`, date format `Ymd`, display timezone configurable (default `UTC` until confirmed). | Settings |
+| A9 | Default upload allowlist: PDF, JPEG, PNG (HEIC optional per template, stored as-is, with no conversion). Max 10 MB per file. Per-template overrides. | Templates / `.env` |
+| A10 | Files are protected by storage-level encryption (host/bucket). App-level file encryption is an optional toggle (`DOCUMENT_APP_ENCRYPTION`), off by default pending a key-management decision. | `.env` |
+| A11 | Per-document HR approval (approve / request correction). A packet is `ready_for_download` when all required documents are approved. | — |
+| A12 | Superseded document versions are kept until purge so HR can see correction history. Configurable to delete superseded binaries immediately. | `.env` |
+| A13 | No HRIS integration and no e-sign provider in scope. | — |
+| A14 | IP address and user agent are recorded in audit and consent records as security metadata. They can be turned off if the client's privacy policy objects. | `.env` |
+| A15 | Audit logs are kept for 1 year by default, in pseudonymous form only (no names, emails or content). Pending confirmation. | `.env` |
+
+---
+
+## 4. Risks
+
+| Risk | Severity | Mitigation / owner |
+|---|---|---|
+| Laravel 10 is past upstream security support | High | Client decision (Open Question 0). Keep code upgrade-friendly. Monitor advisories (`composer audit` in CI). |
+| I-9 legal requirements (electronic signature, and the fact that physical document examination in Section 2 is the employer's responsibility outside this portal) | High | Wet-sign default. Approval record required before e-sign. The portal handles applicant-side completion only. Legal sign-off is the client's responsibility. |
+| Collection of SSNs and identity documents | High | App-level encryption of form data, private storage, masking, audited reveal, minimal retention, no emailing of content. |
+| Email-only identity verification | Medium | Documented limitation. Optional out-of-band factor. Short sessions. |
+| No malware scanner | Medium | `FileScanner` interface. Strict MIME/extension/magic-byte validation. Files served with `Content-Disposition: attachment` and `nosniff`. Documented as a deployment risk. |
+| Backups retaining purged data | Medium | Documented. Client must set backup retention consistent with policy. |
+| Mis-sent invitation (wrong email entered by HR) | Medium | Email shown for confirmation on create. HR can revoke immediately. Consent gate before any form. |
+| Notification spam to HR (≈5 users × many events) | Low | Configurable recipients. Optional digest (Open Question 8). |
+| Large ZIP generation timeouts | Low | Queued job, size limits, temp cleanup. |
+| Scope creep from "online completion where possible" for official PDFs | Medium | Pre-fill deferred. Per-form decision. |
+
+---
+
+## 5. Phased implementation plan
+
+Each phase ends with: tests passing (`php artisan test`), Pint + Larastan clean, a list of changed files, outstanding issues, and a commit/push to the working branch.
+
+### Phase A — Analysis and design (this phase)
+`PROJECT_ANALYSIS.md`, `docs/architecture.md`, `docs/signature-compliance-decisions.md`, `OPEN_QUESTIONS.md`, `README.md` (stub). **Stop for review.**
+
+### Phase B — Foundation
+- Scaffold Laravel ^10.48, configure private `documents` disk, security headers middleware, session hardening, production safety checks (`APP_DEBUG` off, HTTPS forced).
+- Fortify: login, mandatory TOTP 2FA enrollment, recovery codes, password confirmation; no registration.
+- `portal:hr-user:create` command; dev-only seeder that reads credentials from env (refuses to run in production).
+- Audit foundation: `audit_events`, `AuditLogger` service with **allowlisted** metadata keys per event, append-only model guards (plus a PostgreSQL trigger when that driver is used).
+- Policies skeleton, `EnsureTwoFactorEnabled` middleware.
+- Tests: login, 2FA gate, unauthenticated denial, audit sanitization.
+
+### Phase C — Applicants, invitations, consent
+- Applicant CRUD (Form Requests, policy, search/pagination).
+- `InvitationService`: issue / reissue / revoke, HMAC hashing, 7-day expiry, queued invitation mail, delivery logging.
+- Applicant access flow: code → email OTP → bound session middleware; rate limiters; generic errors; failed-attempt auditing.
+- Consent versions (HR-managed; placeholder text clearly marked "DRAFT — client wording pending"), acknowledgement gate middleware.
+- Tests: hashing, expiry, revocation, reissue preserves progress, rate limiting, generic responses, cross-applicant isolation, consent gate.
+
+### Phase D — Templates, forms, uploads
+- Template and field management with config validation. Seed I-9 and SSA-89 templates as `wet_signature_upload` with **no** official PDF bundled (HR uploads the current official form).
+- Assignment of templates to applicants (defaults plus per-applicant additions).
+- Dynamic form renderer and server validation, draft save/resume.
+- `UploadService`: MIME sniffing (`finfo`) + extension + size + allowlist; reject scripts/executables/macros/polyglot signatures; randomized storage paths; SHA-256; scanner hook; versioning.
+- `FilenameGenerator`: pattern tokens, Unicode normalization (NFKC → ASCII transliteration via intl), separator/unsafe-character stripping, length cap, collision suffixes.
+- Supporting files linked to requirement keys. `DocumentStateMachine`, `ApplicantProgressService`.
+- Tests: required/optional rules, wet-sign flow, supporting association, rejections, naming, save/resume, ID tampering.
+
+### Phase E — HR review and export
+- Dashboard (counts, filters), applicant detail checklist, authorized inline preview/download.
+- Approve / request correction (message to the applicant; email contains no content), applicant replacement creates a new version.
+- `BuildApplicantZip` queued job: folder structure, safe names, path-traversal-proof entry names, only the applicant's own files; authorized download; temp expiry.
+- Mark transferred (who/when) → retention clock.
+- Tests: download authorization, ZIP contents/names, correction/versioning, audit events.
+
+### Phase F — Notifications and lifecycle
+- Event notifications (submitted, uploaded/replaced, completed, correction requested), editable mail templates (subject/body with a safe placeholder set), queued delivery log.
+- Scheduler: invitation expiry marking, reminders (idempotent; tracked in `reminder_dispatches`), retention dry-run/purge, legal hold, ZIP cleanup, optional health check.
+- `docs/retention-and-backup.md`.
+- Tests: reminder scheduling, retention dry-run/purge/legal hold, ZIP cleanup.
+
+### Phase G — Hardening and handover
+- Full authorization test matrix, security review (`/security-review`), upload fuzz cases, `composer audit`, performance checks with seeded volume.
+- E-sign adapter contract tests using a fake provider, and the webhook signature/idempotency skeleton (disabled).
+- `docs/security-and-privacy.md`, `docs/deployment.md`, complete README, restore test plan, UAT checklist for the client's sample forms.
+
+---
+
+## 6. What needs client input before or during build
+
+See `OPEN_QUESTIONS.md`. Items that **block specific phases** (other work proceeds with configurable defaults):
+- Phase B: Open Question 0 (Laravel 10 vs supported major), 12 (hosting/DB).
+- Phase C: Open Questions 3 (consent wording; a placeholder is used meanwhile), 7 (identity verification method).
+- Phase D: Open Questions 1, 2, 6 (forms, fields, naming). The engine is built generically; real templates are loaded once supplied.
+- Phase F: Open Questions 8, 10, 11 (reminders, retention trigger, backups).
+- Any `provider_esign` use: Open Questions 4, 14.

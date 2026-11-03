@@ -1,0 +1,26 @@
+# Open Questions for the Client
+
+Priority: **P0** blocks a build phase or a production launch. **P1** is needed before UAT. **P2** can be decided later. Until an answer arrives, the portal uses the "Interim default" shown, and every default is configurable.
+
+| # | Pri | Question | Interim default | Blocks |
+|---|---|---|---|---|
+| 0 | P0 | Laravel 10 no longer receives upstream security fixes. Do you accept Laravel 10 (latest 10.x patch, not 10.5.0) for a system holding SSNs and ID documents, or may we build on a currently supported major (Laravel 12/13)? | Laravel ^10.48, written to be upgrade-friendly | Phase B |
+| 1 | P0 | Complete inventory of onboarding forms, with the current official/sample PDFs for each (I-9, SSA-89, W-4, state withholding, direct deposit, handbook acknowledgement, etc.). | Generic template engine; I-9 and SSA-89 templates seeded with no PDF attached | Phase D content |
+| 2 | P0 | For each form: online vs. print/upload; fields, validation and required status; which supporting uploads are required; allowed file types and max size; whether online answers should pre-fill the official PDF. | Upload-based; PDF/JPEG/PNG, 10 MB; no PDF pre-fill | Phase D content |
+| 3 | P0 | Final disclosure/consent wording (after HR consultant review). Must applicants re-acknowledge when the wording changes mid-onboarding? | Placeholder marked DRAFT; re-acknowledgement required on new version | Production |
+| 4 | P0 | Written approval, per form, of any electronic-signature use. For I-9: is an electronic workflow wanted, through which provider, and who signs off that it meets the requirements your consultant listed? | All forms `wet_signature_upload`; e-sign disabled | Any e-sign |
+| 5 | P1 | Confirm in writing that SSA-89 requires a wet signature. | Wet signature | — |
+| 6 | P1 | Final filename pattern, date format (e.g. `YYYYMMDD`), timezone, and ZIP folder structure. | `{Last}_{First}_{DocType}_{YYYYMMDD}`; UTC; `{Last}_{First}_Packet_{date}/{nn}_{DocCode}/` | — |
+| 7 | P0 | Applicant identity verification: is invitation code + email OTP acceptable, given that both go to the same mailbox? Or do you want an additional out-of-band check (PIN given by HR by phone, or matching a date of birth HR entered)? Is the code reusable until expiry (each login requiring a new OTP), or strictly single-use with OTP-only return logins? | Code reusable until expiry + fresh email OTP on every login | Phase C |
+| 8 | P1 | Reminder timing, frequency and wording; reminder recipients (applicant only, or HR too); should HR get each event immediately or as a daily digest? | Applicant reminders 3 days and 1 day before expiry, incomplete reminder every 3 days; HR emails sent immediately to all HR users | Phase F |
+| 9 | P1 | Review model: per-document approval, packet-level approval, or both? Should HR keep internal notes? Do you want a fixed list of correction reasons? | Per-document approve/correct; free-text correction message; no internal notes | Phase E |
+| 10 | P0 | Retention trigger: when documents are completed, or when HR marks the packet as downloaded and transferred? Duration (≤ 60 days unless approved)? Policy for abandoned or incomplete applications? Is automatic purge wanted, or manual purge after a dry-run report? | Trigger = HR "transferred"; 60 days; abandoned policy off; auto-purge off (dry-run reports only) | Production |
+| 11 | P0 | Backup retention period, audit-log retention period, legal-hold process (who may set or clear a hold), and deletion requirements for backups. | Audit log 1 year (pseudonymous); legal hold settable by any HR user, audited; backup retention not set | Production |
+| 12 | P0 | Hosting provider/region, PHP and database versions, file storage (local disk vs. S3-compatible bucket with encryption), mail provider, queue/cron availability, and whether TLS is terminated in front of the app. | PostgreSQL; private local disk in dev; `database` queue | Phase B deploy |
+| 13 | P1 | Is malware scanning available or required (e.g. ClamAV on the host, or a cloud scanning service)? | Strict file-type validation only; marked "not scanned" | Production risk sign-off |
+| 14 | P2 | Is a future e-sign provider (DocuSign, Adobe Acrobat Sign) or HRIS integration planned? Who holds the licences? | Neither; interface stub only | — |
+| 15 | P1 | HR account management: may any HR user create/disable other HR users in the app (all users have equal permissions), or should only the technical operator do it via the command line? | Any HR user, with password re-confirmation, audited | Phase B |
+| 16 | P1 | Should IP address and browser user-agent be recorded on consent and audit records? | Yes, as security metadata | Phase B |
+| 17 | P1 | Should HR be able to see full SSNs on screen, or only masked SSNs plus the downloaded document? | Masked; audited "reveal" with password confirmation | Phase E |
+| 18 | P2 | Should superseded (corrected) document versions be deleted immediately, or kept until the packet's retention purge? | Kept until purge | — |
+| 19 | P2 | Does the employer use E-Verify or remote document examination for I-9 Section 2? This affects whether ID document copies should be collected through the portal at all. | Portal handles only applicant-side uploads that you configure; Section 2 is out of scope | Form config |
