@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\ConsentVersion;
 use App\Models\User;
 use App\Services\Hr\HrUserService;
 use Illuminate\Database\Seeder;
@@ -17,6 +18,17 @@ class DatabaseSeeder extends Seeder
     {
         if (app()->environment('production')) {
             throw new RuntimeException('DatabaseSeeder must not be run in production.');
+        }
+
+        $this->call(DefaultTemplatesSeeder::class);
+
+        if (! ConsentVersion::exists()) {
+            $consent = new ConsentVersion([
+                'version' => 'DRAFT-1',
+                'title' => 'Disclosure and consent (DRAFT: client wording pending)',
+                'body' => "PLACEHOLDER TEXT FOR DEVELOPMENT ONLY. The final disclosure wording will be supplied by the client after HR consultant review.\n\nWe collect the information and documents you provide in this portal to complete your onboarding. Access is limited to authorized HR staff, the information is protected in transit and at rest, and it is deleted from this portal after it has been transferred to our HR system.",
+            ]);
+            $consent->forceFill(['active' => true, 'effective_at' => now()])->save();
         }
 
         $email = env('DEV_HR_EMAIL');

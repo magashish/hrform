@@ -21,18 +21,21 @@ class SecurityHeaders
 
         $headers = $response->headers;
 
-        $headers->set('Content-Security-Policy', implode('; ', [
-            "default-src 'self'",
-            "script-src 'self'",
-            "style-src 'self'",
-            "img-src 'self' data:",
-            "font-src 'self'",
-            "connect-src 'self'",
-            "object-src 'none'",
-            "base-uri 'self'",
-            "form-action 'self'",
-            "frame-ancestors 'none'",
-        ]));
+        // File responses set their own stricter (sandboxed) policy.
+        if (! $headers->has('Content-Security-Policy')) {
+            $headers->set('Content-Security-Policy', implode('; ', [
+                "default-src 'self'",
+                "script-src 'self'",
+                "style-src 'self'",
+                "img-src 'self' data:",
+                "font-src 'self'",
+                "connect-src 'self'",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'none'",
+            ]));
+        }
         $headers->set('X-Content-Type-Options', 'nosniff');
         $headers->set('X-Frame-Options', 'DENY');
         $headers->set('Referrer-Policy', 'no-referrer');

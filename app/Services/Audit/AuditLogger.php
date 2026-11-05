@@ -2,10 +2,12 @@
 
 namespace App\Services\Audit;
 
+use App\Models\Applicant;
 use App\Models\AuditEvent;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
@@ -52,7 +54,7 @@ class AuditLogger
             'actor_id' => $actorId,
             'event' => $event,
             'subject_type' => $subject ? $this->subjectType($subject) : null,
-            'subject_id' => $subject ? (string) $subject->getKey() : null,
+            'subject_id' => $subject ? $this->subjectId($subject) : null,
             'applicant_ref' => $applicantRef,
             'metadata' => $this->sanitize($metadata, $allowed) ?: null,
             'ip_address' => $this->ipAddress(),
@@ -93,8 +95,17 @@ class AuditLogger
     {
         return match (true) {
             $subject instanceof User => 'hr_user',
-            default => strtolower(class_basename($subject)),
+            default => Str::snake(class_basename($subject)),
         };
+    }
+
+    /**
+     * Applicants are referenced by their pseudonymous applicant_ref so the
+     * reference stays meaningful (and non-identifying) after purge.
+     */
+    private function subjectId(Model $subject): string
+    {
+        return $subject instanceof Applicant ? $subject->applicant_ref : (string) $subject->getKey();
     }
 
     private function currentHrUser(): ?User
