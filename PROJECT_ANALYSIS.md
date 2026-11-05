@@ -1,6 +1,6 @@
 # Project Analysis — Secure Applicant & New-Hire Onboarding Portal
 
-Status: **Phase B (foundation) delivered.** Phase A analysis approved, with two changes requested by the client: Laravel 12 (see §1.1) and no Node.js toolchain (see §2).
+Status: **Phases A–G delivered (2026-11-05); ready for client UAT.** The client approved the Phase A analysis with two changes: Laravel 12 (§1.1) and no Node.js toolchain (§2). Delivery notes are in §7–§8. Items that still need client decisions are in `OPEN_QUESTIONS.md`.
 Date of analysis: 2026-11-03.
 
 Companion documents:
@@ -58,7 +58,7 @@ Full module boundaries, ERD and trust boundaries: `docs/architecture.md`.
 1. HR creates the applicant (first name, last name, email) and issues an invitation.
 2. The system generates a **160-bit random code** (Crockford base32, grouped for manual entry, e.g. `K7QM-…`). Only `HMAC-SHA256(app_key_derived_secret, code)` is stored. A keyed hash allows indexed lookup without storing the code. The raw code exists only in the queued email payload and is never logged or shown to HR again.
 3. The email links to `/portal/access#<code>`. The code sits in the URL **fragment**, which browsers never send to the server, so it stays out of access logs, proxies and Referer headers. A few lines of JS move it into a POST form. Without JS the applicant pastes the code manually.
-4. After a valid code, the applicant confirms their email address. A 6-digit OTP (hashed, 10-minute expiry, 5 attempts) is sent to the **email on file** whatever was typed, and the screen always shows the same generic message. This prevents enumeration.
+4. After a valid code, the applicant confirms their email address. A 6-digit OTP (hashed, 10-minute expiry, 5 attempts, at most 3 sends per 15 minutes) is sent to the email on file **only if the typed address matches it**. The screen shows the same message either way, which prevents enumeration.
 5. On successful OTP the session ID is regenerated. The session stores `applicant_id`, `invitation_id`, `verified_at`. Middleware re-checks on **every request** that the invitation is not revoked or expired, and enforces an idle timeout (default 30 min) and an absolute timeout (default 8 h).
 6. Applicants can return while the code is valid; each return requires a fresh OTP. **Reissue** revokes any active invitation and creates a new one. All progress lives on the applicant and their documents, never on the invitation, so it is preserved.
 7. Code and OTP endpoints are rate-limited by IP and by invitation. Failures are audited (no raw values) and get identical generic responses.
@@ -220,7 +220,54 @@ Delivered:
 
 Tests: 47 (all pass on PostgreSQL 16; on SQLite 44 pass and 3 PostgreSQL-trigger tests are skipped).
 
-Outstanding / carried forward:
-- Larastan not installed (download blocked in build environment).
-- HR "settings" UI arrives with the settings module (Phase D/F).
-- Audit-log retention job (uses the purge flag) arrives in Phase F.
+Outstanding / carried forward: Larastan not installed (its download was blocked in the build environment).
+
+---
+
+## 8. Phases C–G delivery notes (2026-11-05)
+
+**C: Applicants, invitations, consent.**
+- Applicant CRUD with search and filters.
+- Invitation issue, reissue and revoke. Codes are 160-bit Crockford base32, stored only as an HMAC, valid 7 days, and emailed through an encrypted queued mail. The link carries the code in the URL fragment.
+- Sign-in is code → email match → OTP → a session bound to the applicant and invitation, with idle and absolute timeouts.
+- Disclosure versions are immutable. The active version must be acknowledged, and a new version requires acknowledging again.
+
+**D: Templates, forms, uploads.**
+- HR-managed templates. Input modes: online form, upload, acknowledgement. Signature modes: none or wet signature; provider e-sign is blocked until a provider is configured and an approval is recorded.
+- Closed set of field types with validated configuration. Answers are encrypted at rest.
+- Uploads go through an allowlist, content-type sniffing and active-content rejection, then a scanner hook. Files are stored privately under random names, with SHA-256 and versioning.
+- Supporting-file requirements per template. Filename generator with transliteration and collision handling.
+- Document state machine; applicant status is derived from document statuses.
+
+**E: Review and export.**
+- Dashboard counts and filters. Applicant detail page with checklist, invitation history, consent record and activity timeline.
+- Approve or request correction. The correction message is shown in the portal only; the email says only that a correction is needed.
+- SSNs are masked, with an audited reveal that requires the password again.
+- Authorized download and preview of files. Individual file deletion.
+- Queued ZIP export: folder per document, generated names, form-answer HTML, SHA-256 manifest; downloadable only by the requester and expiring after 60 minutes.
+- Mark transferred: records who and when, starts retention and revokes access.
+
+**F: Notifications and lifecycle.**
+- HR alerts (submitted, uploaded/replaced, packet completed, delivery failed, purge failed) go to configurable recipients and contain no personal data.
+- Applicant correction and reminder emails with editable subject and opening paragraph.
+- Idempotent expiry and incomplete-onboarding reminders.
+- Retention dry run and purge with legal hold; manual deletion.
+- Export and OTP cleanup; audit pruning.
+- Settings page and System health page. Scheduler defined in `routes/console.php`.
+
+**G: Hardening and handover.**
+- `SignatureProvider` interface with disabled (default) and fake (tests only) providers; signature-transaction tables; HMAC-verified, idempotent webhook.
+- Form-friendly password re-confirmation.
+- Strict CSP verified on every page by tests.
+- PostgreSQL-safe idempotency (`insertOrIgnore`).
+- End-to-end browser run: HR login with 2FA → create applicant → applicant signs in on a phone → consent → wet-signature upload (including rejection of a disguised PHP file) → submit → HR approve → ZIP download.
+- Documentation: `docs/security-and-privacy.md`, `docs/retention-and-backup.md`, `docs/deployment.md`, and a complete README.
+
+**Tests:** 123 automated tests (PostgreSQL: all pass; SQLite: 120 pass and 3 PostgreSQL-trigger tests are skipped). They cover the list in the master prompt §14.
+
+**Known limitations / not built (by design or pending decisions):**
+- No pre-filling of official PDFs from online answers (OPEN_QUESTIONS #2).
+- No real e-signature provider adapter (#4, #14).
+- Malware scanning is off unless ClamAV is configured (#13).
+- Email OTP is not an independent second factor (#7).
+- Final disclosure wording, forms, naming pattern, reminder timing and retention trigger use interim defaults until confirmed.

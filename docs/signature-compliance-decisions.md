@@ -28,3 +28,13 @@ From the provider, as far as its API supports: envelope/transaction ID, signer i
 
 - I-9 Section 2 (employer examination of documents) and any E-Verify or remote-examination procedure.
 - Determining legal sufficiency of any signature method.
+
+## How this is enforced in the application
+
+- Each template has a `signature_mode`. `DefaultTemplatesSeeder` creates I-9 and SSA-89 as `wet_signature_upload`.
+- Selecting `provider_esign` is rejected unless **both** of these hold:
+  1. a provider is configured and available (`ESIGN_PROVIDER`; only `disabled` exists for production today);
+  2. a `signature_mode_approvals` record for that template and mode exists. It names who authorized it, a reference to the written approval, the date, and who recorded it (HR → Documents → template → *Signature-mode approvals*).
+- Each applicant's document keeps a snapshot of the signature mode at assignment, so changing a template later does not alter documents already in progress.
+- Wet-signature documents show explicit hand-signing instructions and a link to the official blank PDF that HR uploaded.
+- `App\Services\Signatures\SignatureProvider` defines the integration boundary: envelope creation, webhook verification before parsing, and evidence artifacts. The webhook endpoint returns 404 while the provider is disabled, verifies HMAC signatures with timestamp tolerance, and ignores duplicate event IDs.

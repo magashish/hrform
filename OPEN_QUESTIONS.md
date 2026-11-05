@@ -24,3 +24,10 @@ Priority: **P0** blocks a build phase or a production launch. **P1** is needed b
 | 17 | P1 | Should HR be able to see full SSNs on screen, or only masked SSNs plus the downloaded document? | Masked; audited "reveal" with password confirmation | Phase E |
 | 18 | P2 | Should superseded (corrected) document versions be deleted immediately, or kept until the packet's retention purge? | Kept until purge | — |
 | 19 | P2 | Does the employer use E-Verify or remote document examination for I-9 Section 2? This affects whether ID document copies should be collected through the portal at all. | Portal handles only applicant-side uploads that you configure; Section 2 is out of scope | Form config |
+
+## Notes on implemented defaults
+
+Every interim default above is implemented and configurable (`.env` or HR → Settings). Changing one does not require code changes, except:
+- **#2 PDF pre-fill** (needs a PDF library and per-form field mapping);
+- **#4/#14 e-signature provider** (needs a provider adapter implementing `SignatureProvider`);
+- **#7 extra out-of-band check** (needs a small addition to the applicant sign-in flow).

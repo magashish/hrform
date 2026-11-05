@@ -1,21 +1,38 @@
 # HR Onboarding Portal
 
-A secure, temporary portal where HR invites applicants and new hires to complete onboarding paperwork. HR then reviews, downloads and transfers the documents to the employer's existing HR system, after which the portal deletes them.
+A secure, temporary portal where HR invites applicants and new hires to complete onboarding paperwork. Applicants verify their invitation, acknowledge a disclosure, fill in online forms, print and hand-sign documents, and upload signed copies and supporting evidence. HR reviews each document, requests corrections, downloads files individually or as a ZIP, marks the packet as transferred to the employer's HR system, and the portal then deletes it on a retention schedule.
 
-**Status:** Phase B (foundation) complete: HR login with mandatory 2FA, HR user management, audit log and security baseline. Applicant features arrive in Phases C–F (see [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md)).
+**Status:** feature-complete for client UAT. Several business decisions still use interim defaults; see [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md).
 
-Design documents:
-- [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md): stack, architecture, assumptions, risks, phased plan, delivery notes
-- [`docs/architecture.md`](docs/architecture.md): ERD, modules, routes, data flows, trust boundaries
-- [`docs/signature-compliance-decisions.md`](docs/signature-compliance-decisions.md): signature-mode decisions
-- [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md): client decisions needed
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md) | Stack, architecture, assumptions, risks, phase plan, delivery notes |
+| [`docs/architecture.md`](docs/architecture.md) | ERD, modules, routes, data flows, trust boundaries |
+| [`docs/security-and-privacy.md`](docs/security-and-privacy.md) | Controls implemented and operator responsibilities |
+| [`docs/signature-compliance-decisions.md`](docs/signature-compliance-decisions.md) | Signature mode per form (I-9 / SSA-89 = wet signature) |
+| [`docs/retention-and-backup.md`](docs/retention-and-backup.md) | Retention, legal hold, purge, backup caveats, restore test |
+| [`docs/deployment.md`](docs/deployment.md) | Server setup, cron and queue, nginx, go-live checklist |
+| [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md) | Decisions needed from the client |
 
 ## Stack
 
-- PHP 8.2+ (8.3 recommended), Laravel 12, Laravel Fortify (HR login + TOTP 2FA)
+- PHP 8.2+ (8.3 recommended), **Laravel 12**, Laravel Fortify (HR login + TOTP 2FA)
 - PostgreSQL 14+ (recommended) or MySQL 8. SQLite is fine for local trials.
-- **No Node.js required.** Blade templates, plain CSS in `public/css`, small vanilla JS in `public/js`. There is no asset build step.
-- Required PHP extensions: `pdo_pgsql` or `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, `intl`, `zip`, `gd`.
+- **No Node.js.** Blade templates, plain CSS (`public/css/app.css`) and a small vanilla JS file (`public/js/app.js`). There is no build step.
+
+## How it works
+
+**HR** (`/hr`): sign in with password + authenticator app, then:
+
+1. **Disclosure**: create and activate the consent text applicants must accept.
+2. **Documents**: set up templates (online form, upload, or acknowledgement; wet signature or none; accepted file types; supporting files; printable blank PDF). I-9 and SSA-89 are pre-configured as wet signature.
+3. **Applicants → Add applicant**: name, email and documents. A 7-day invitation is emailed automatically.
+4. Track progress, review each document (approve or request a correction), download files or a ZIP, then **Mark as transferred**. The packet is deleted after the retention period (default 60 days).
+5. **Send new invitation** at any time if the applicant needs more time; their progress is kept.
+
+**Applicants** (`/portal`): open the email link → confirm their email address → enter the 6-digit code → accept the disclosure → complete each document (forms save as drafts; wet-signature forms are downloaded, printed, signed by hand and uploaded) → submit.
 
 ## Local setup
 
@@ -24,32 +41,28 @@ composer install
 ```
 
 ```bash
-cp .env.example .env
+cp .env.example .env && php artisan key:generate
 ```
+
+For a quick SQLite trial, set `DB_CONNECTION=sqlite` in `.env`, comment out the other `DB_*` lines, and set `MAIL_MAILER=log`. That mailer writes emails to `storage/logs/laravel.log`, which is how you can see invitation links and codes locally. **Never use it in production.**
 
 ```bash
-php artisan key:generate
+touch database/database.sqlite && php artisan migrate
 ```
 
-Edit `.env` for your database. For a quick local trial with SQLite set `DB_CONNECTION=sqlite`, comment out the other `DB_*` lines and create the file:
+Seed development data. This creates the I-9 and SSA-89 templates, a DRAFT disclosure and an HR user; it refuses to run in production:
 
 ```bash
-touch database/database.sqlite
+DEV_HR_EMAIL=you@example.com DEV_HR_PASSWORD='Choose-A-Str0ng-Pass!' php artisan db:seed
 ```
 
-```bash
-php artisan migrate
-```
-
-Create the first HR user. You'll be prompted for a password, which must be at least 12 characters with mixed case, a number and a symbol:
+Or create an HR user interactively:
 
 ```bash
 php artisan portal:hr-user:create you@example.com --name="Your Name"
 ```
 
-Alternatively, for local development only, set `DEV_HR_EMAIL` and `DEV_HR_PASSWORD` in `.env` and run `php artisan db:seed`. The seeder refuses to run in production.
-
-Start the app and a queue worker:
+Run the app, a queue worker and the scheduler, each in its own terminal:
 
 ```bash
 php artisan serve
@@ -59,26 +72,48 @@ php artisan serve
 php artisan queue:work
 ```
 
-Open `http://localhost:8000/hr/login`. At first sign-in you'll be asked to confirm your password and enrol an authenticator app (TOTP). HR pages stay locked until 2FA is confirmed.
+```bash
+php artisan schedule:work
+```
 
-For local email testing set `MAIL_MAILER=log`. Note that this writes full emails, including password-reset and invitation links, to `storage/logs`. **Never use the `log` mailer in production.**
+Open `http://localhost:8000/hr/login`. At first sign-in you'll confirm your password and enrol an authenticator app.
 
 ## Key environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HR_2FA_REQUIRED` | `true` | Mandatory TOTP 2FA for HR users |
-| `HR_PASSWORD_MIN_LENGTH` | `12` | HR password minimum length |
-| `HR_PASSWORD_CHECK_UNCOMPROMISED` | `false` | Check passwords against Have I Been Pwned (needs outbound HTTPS) |
+| `HR_2FA_REQUIRED` | `true` | Mandatory TOTP 2FA for HR |
+| `HR_PASSWORD_MIN_LENGTH` | `12` | HR password length |
 | `AUTH_PASSWORD_TIMEOUT` | `900` | Seconds before sensitive actions re-ask for the password |
-| `SESSION_LIFETIME` | `30` | Idle session timeout (minutes) |
-| `SESSION_SECURE_COOKIE` | `true` in production | HTTPS-only session cookie |
-| `TRUSTED_PROXIES` | empty | Proxy IPs/CIDRs when TLS is terminated upstream |
-| `SECURITY_HSTS` | `false` | Send HSTS (enable once HTTPS is permanent) |
-| `APP_DISPLAY_TIMEZONE` | `UTC` | Timezone for displayed dates (storage is UTC) |
-| `AUDIT_RECORD_IP` / `AUDIT_RECORD_USER_AGENT` | `true` | Security metadata on audit events |
-| `DOCUMENTS_DRIVER` | `local` | `local` (outside the web root) or `s3` (private, encrypted bucket) |
-| `INVITATION_EXPIRY_DAYS` | `7` | Applicant invitation lifetime (Phase C) |
+| `SESSION_LIFETIME` | `30` | HR idle timeout (minutes) |
+| `APPLICANT_IDLE_TIMEOUT_MINUTES` / `APPLICANT_ABSOLUTE_TIMEOUT_MINUTES` | `30` / `480` | Applicant session limits |
+| `INVITATION_EXPIRY_DAYS` | `7` | Invitation lifetime |
+| `APPLICANT_OTP_TTL_MINUTES` / `APPLICANT_OTP_MAX_ATTEMPTS` | `10` / `5` | Email code limits |
+| `APP_DISPLAY_TIMEZONE` | `UTC` | Timezone for displayed dates and filenames |
+| `DOCUMENTS_DRIVER` | `local` | `local` (outside the web root) or `s3` (private, encrypted bucket; `DOCUMENTS_S3_*`) |
+| `UPLOAD_DEFAULT_MAX_KB` / `UPLOAD_HARD_MAX_KB` | `10240` / `25600` | Upload size limits |
+| `MALWARE_SCANNER` | `none` | `clamav` to scan uploads (`CLAMAV_SOCKET` or `CLAMAV_HOST`/`PORT`) |
+| `RETENTION_DAYS` | `60` | Days after transfer before purge (maximum 60 unless `RETENTION_ALLOW_OVER_MAX`) |
+| `RETENTION_AUTO_PURGE` | `false` | Off = scheduler only writes dry-run reports |
+| `EXPORT_TTL_MINUTES` | `60` | ZIP export lifetime |
+| `AUDIT_RETENTION_DAYS` | `365` | Pseudonymous audit-log retention |
+| `ESIGN_PROVIDER` | `disabled` | No e-signature provider is selected |
+| `TRUSTED_PROXIES`, `SECURITY_HSTS` | empty, `false` | Reverse proxy and HSTS |
+
+Reminder timing, notification recipients, filename pattern, retention days and email wording are also editable by HR under **Settings**.
+
+## Scheduled and queued work
+
+Cron runs `php artisan schedule:run` every minute (see [`routes/console.php`](routes/console.php)). The queue worker sends all email and builds ZIP exports.
+
+| Command | Schedule | Purpose |
+|---|---|---|
+| `portal:reminders:send` | hourly | Invitation-expiry and incomplete-onboarding reminders |
+| `portal:exports:cleanup` | every 15 min | Delete expired ZIPs and stale email codes |
+| `portal:retention:purge [--dry-run] [--force]` | daily 02:15 | Retention report or purge (respects legal hold) |
+| `portal:audit:prune` | daily 02:45 | Remove audit events past retention |
+| `portal:heartbeat` | every 5 min | Scheduler health for the System page |
+| `portal:hr-user:create` | manual | Create an HR account |
 
 ## Testing
 
@@ -90,22 +125,19 @@ php artisan test
 vendor/bin/pint --test
 ```
 
-The PostgreSQL-only audit trigger tests are skipped on SQLite. To run them against PostgreSQL:
+```bash
+composer audit
+```
+
+The PostgreSQL-only tests (audit-log trigger) are skipped on SQLite. To run everything against PostgreSQL:
 
 ```bash
 DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_DATABASE=onboarding_test DB_USERNAME=onboarding DB_PASSWORD=secret php artisan test
 ```
 
-Check dependencies for known vulnerabilities before each deployment:
+## Deployment, backup and retention
 
-```bash
-composer audit
-```
-
-## Production notes (summary; full guide in Phase G)
-
-- Set `APP_ENV=production` and `APP_DEBUG=false`. Debug is also forced off in production as a safety net.
-- Serve over HTTPS only. Point the web server's document root at `public/`.
-- Run a queue worker under a process supervisor (`php artisan queue:work`) and the scheduler from cron, once a minute: `php artisan schedule:run`.
-- Document storage must be private: either the default `storage/app/private/documents` (outside the web root, restrictive permissions), or a private S3-compatible bucket with server-side encryption.
-- Backup, retention and deployment guides will be added in Phases F–G.
+See [`docs/deployment.md`](docs/deployment.md) and [`docs/retention-and-backup.md`](docs/retention-and-backup.md). In short:
+- Production runs with `APP_ENV=production`, HTTPS only, a queue worker under a supervisor, and cron for the scheduler.
+- Documents are stored on encrypted private storage.
+- Backup retention must match the deletion policy: deleting a packet does not remove it from existing backups.

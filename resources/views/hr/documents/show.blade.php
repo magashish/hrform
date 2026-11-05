@@ -61,7 +61,7 @@
                         @php($f = $row['f'])
                         <tr @class(['superseded' => $f->superseded_at])>
                             <td>{{ $row['label'] }} @if ($f->superseded_at)<span class="badge badge-muted">replaced</span>@endif</td>
-                            <td><code class="small">{{ $f->generated_filename }}</code><br><span class="muted small">{{ number_format($f->size / 1024) }} KB · SHA-256 {{ substr($f->sha256, 0, 12) }}…</span></td>
+                            <td><code class="small">{{ $f->generated_filename }}</code><br><span class="muted small">{{ $f->size < 1024 ? $f->size.' bytes' : number_format($f->size / 1024).' KB' }} · SHA-256 {{ substr($f->sha256, 0, 12) }}…</span></td>
                             <td>{{ $f->uploaded_at->timezone($tz)->format('M j, g:i A') }}</td>
                             <td>{{ str_replace('_', ' ', $f->scan_status->value) }}</td>
                             <td class="right nowrap">

@@ -68,7 +68,7 @@
             @if ($document->signature_mode_snapshot->value === 'wet_signature_upload')
                 <h2>Sign by hand and upload</h2>
                 <ol>
-                    <li>@if ($template->hasPrintAsset())<a href="{{ route('portal.documents.print', $document->id) }}">Download the form (PDF)</a>@else HR will provide the form to print @endif and print it.</li>
+                    <li>@if ($template->hasPrintAsset())<a href="{{ route('portal.documents.print', $document->id) }}">Download the form (PDF)</a> and print it.@else Print the form HR has given you (if you don't have it, contact HR).@endif</li>
                     <li>Complete it and <strong>sign it by hand in ink</strong>.</li>
                     <li>Scan it or take a clear, well-lit photo of every page.</li>
                     <li>Upload it below as a {{ strtoupper(implode(', ', $template->allowed_extensions)) }} file.</li>

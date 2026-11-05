@@ -326,7 +326,9 @@ Notes on deletion vs. audit:
 - `users` referenced as actor use `restrictOnDelete`. HR users are disabled, never deleted, while referenced.
 - Soft deletes are **not** used for applicant data. Deletion is meant to be real. `applicants.status = retention_pending` is the only pre-delete holding state.
 
-## 4. Route map (planned)
+## 4. Route map
+
+> The authoritative list is `routes/web.php` (`php artisan route:list`). Implemented paths differ slightly from the original plan. For example, files are served at `/hr/applicants/{applicant}/files/{version|supporting}/{id}`, ZIPs at `/hr/applicants/{applicant}/exports/{export}`, and disclosure versions are managed at `/hr/consent`.
 
 ### Applicant portal (`/portal`, `applicant` middleware group, short sessions)
 | Method | Path | Purpose |
