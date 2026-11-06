@@ -4,6 +4,7 @@ use App\Http\Controllers\Hr\ApplicantController;
 use App\Http\Controllers\Hr\ConsentVersionController;
 use App\Http\Controllers\Hr\DashboardController;
 use App\Http\Controllers\Hr\DocumentReviewController;
+use App\Http\Controllers\Hr\EmailCodeController;
 use App\Http\Controllers\Hr\ExportController;
 use App\Http\Controllers\Hr\FileController;
 use App\Http\Controllers\Hr\HrUserController;
@@ -22,6 +23,7 @@ use App\Http\Middleware\EnsureApplicantSession;
 use App\Http\Middleware\EnsureConsentAcknowledged;
 use App\Http\Middleware\EnsureHrUserIsActive;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
+use App\Http\Middleware\RequireEmailCodeIfEmailMethod;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 
@@ -80,8 +82,15 @@ Route::prefix('portal')->name('portal.')->group(function () {
 */
 
 Route::prefix('hr')->name('hr.')->middleware(['auth', EnsureHrUserIsActive::class])->group(function () {
+    // Emailed sign-in code (HR_2FA_METHOD=email).
+    Route::get('verify-code', [EmailCodeController::class, 'show'])->name('email-code');
+    Route::post('verify-code', [EmailCodeController::class, 'verify'])->middleware('throttle:hr-code-verify')->name('email-code.verify');
+    Route::post('verify-code/resend', [EmailCodeController::class, 'resend'])->middleware('throttle:hr-code-resend')->name('email-code.resend');
+
+    // With the email method this page also requires the emailed code (the
+    // middleware lets TOTP users without an app through so they can enrol).
     Route::get('security/two-factor', TwoFactorSetupController::class)
-        ->middleware('password.confirm')
+        ->middleware(['password.confirm', RequireEmailCodeIfEmailMethod::class])
         ->name('security.two-factor');
 
     Route::middleware(EnsureTwoFactorEnabled::class)->group(function () {

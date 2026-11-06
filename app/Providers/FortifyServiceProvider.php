@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Fortify\Actions\AttemptToAuthenticate;
+use Laravel\Fortify\Actions\CanonicalizeUsername;
+use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
 use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse;
 use Laravel\Fortify\Contracts\SuccessfulPasswordResetLinkRequestResponse;
@@ -30,6 +33,16 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::redirectUserForTwoFactorAuthenticationUsing(RedirectIfTwoFactorAuthenticatable::class);
+
+        // The authenticator-app challenge runs only when HR_2FA_METHOD=totp.
+        // With the email method, EnsureTwoFactorEnabled sends the user to the
+        // emailed-code step after the password is accepted.
+        Fortify::authenticateThrough(fn (Request $request) => array_filter([
+            config('fortify.lowercase_usernames') ? CanonicalizeUsername::class : null,
+            config('portal.hr.two_factor_method') === 'totp' ? RedirectIfTwoFactorAuthenticatable::class : null,
+            AttemptToAuthenticate::class,
+            PrepareAuthenticatedSession::class,
+        ]));
 
         // Disabled HR accounts cannot log in. Same generic failure as a bad password.
         Fortify::authenticateUsing(function (Request $request): ?User {

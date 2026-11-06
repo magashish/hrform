@@ -16,7 +16,10 @@ return [
 
     'events' => [
         // HR authentication
-        'auth.login' => ['two_factor'],
+        'auth.login' => ['second_factor'],
+        'auth.email_code_sent' => [],
+        'auth.email_code_failed' => ['reason'],
+        'auth.email_code_verified' => [],
         'auth.login_failed' => ['reason'],
         'auth.lockout' => [],
         'auth.logout' => [],

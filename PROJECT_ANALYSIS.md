@@ -110,7 +110,7 @@ submitted | under_review → correction_required → in_progress → submitted �
 | A2 | PostgreSQL 14+ or MySQL 8 in production. Development uses PostgreSQL. Tests use SQLite in-memory for speed, plus an optional PostgreSQL CI job. | `.env` |
 | A3 | All HR users have identical permissions, including settings, template management and HR-user management. No hidden admin tier. Sensitive actions (settings, user management, deletion, SSN reveal) require recent password confirmation and are audited. | Policies |
 | A4 | A "technical operator" has **server access only** (deploy, `.env`, artisan). They have no in-app role. The first HR user is created with `php artisan portal:hr-user:create`. | README |
-| A5 | 2FA (TOTP) is **mandatory** for HR. Users without 2FA are forced into enrollment before any HR page. | `HR_2FA_REQUIRED=true` |
+| A5 | A second factor is **mandatory** for HR. **Client decision (2026-11-06): a one-time code emailed at each sign-in** instead of an authenticator app. TOTP remains available. | `HR_2FA_REQUIRED=true`, `HR_2FA_METHOD=email` |
 | A6 | Invitation expiry is 7 days. Reminders default to 3 days and 1 day before expiry, plus an "incomplete" reminder at most every 3 days. All configurable, and all off if set to empty. | Settings / `.env` |
 | A7 | HR notifications go to all active HR users by default, or to a configured distribution address. | Settings |
 | A8 | Filename pattern `{last_name}_{first_name}_{document_type}_{date}`, date format `Ymd`, display timezone configurable (default `UTC` until confirmed). | Settings |
@@ -271,3 +271,14 @@ Outstanding / carried forward: Larastan not installed (its download was blocked 
 - Malware scanning is off unless ClamAV is configured (#13).
 - Email OTP is not an independent second factor (#7).
 - Final disclosure wording, forms, naming pattern, reminder timing and retention trigger use interim defaults until confirmed.
+
+---
+
+## 9. Change: HR second factor by email (2026-11-06)
+
+The client does not want HR staff to use an authenticator app.
+- `HR_2FA_METHOD=email` is now the default. After the password, a 6-digit code is emailed. It is HMAC-stored, valid 10 minutes, allows 5 attempts and at most 3 sends per 15 minutes, and is sent synchronously so sign-in does not depend on the queue worker.
+- The code step is tied to the user and the session. Fortify's authenticator challenge is skipped in this mode.
+- `HR_2FA_METHOD=totp` restores authenticator apps.
+- **Risk:** this is weaker than TOTP if an HR mailbox is compromised. The client should require MFA on HR mailboxes (recorded in docs/security-and-privacy.md).
+- Tests: 7 new tests; full suite 130 passing on PostgreSQL.

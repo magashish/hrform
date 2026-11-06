@@ -14,8 +14,17 @@
 return [
 
     'hr' => [
-        // HR users must enrol and use TOTP 2FA before reaching any HR page.
+        // A second factor is required before any HR page.
         'two_factor_required' => (bool) env('HR_2FA_REQUIRED', true),
+
+        // "email": a one-time code is emailed at every sign-in (client's choice).
+        // "totp":  authenticator app (Fortify), enrolled once per user.
+        'two_factor_method' => in_array(env('HR_2FA_METHOD', 'email'), ['email', 'totp'], true) ? env('HR_2FA_METHOD', 'email') : 'email',
+
+        // Email sign-in codes.
+        'email_code_ttl_minutes' => (int) env('HR_EMAIL_CODE_TTL_MINUTES', 10),
+        'email_code_max_attempts' => (int) env('HR_EMAIL_CODE_MAX_ATTEMPTS', 5),
+        'email_code_max_sends' => (int) env('HR_EMAIL_CODE_MAX_SENDS', 3),   // per 15 minutes
 
         // Minimum password length for HR accounts.
         'password_min_length' => (int) env('HR_PASSWORD_MIN_LENGTH', 12),

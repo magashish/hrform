@@ -28,7 +28,7 @@ flowchart LR
   AV[Optional ClamAV clamd]
 
   A -- invitation code, OTP, uploads --> W
-  H -- password + TOTP --> W
+  H -- password + email code --> W
   P -. signed webhook .-> W
   W --> DB & FS & MQ
   Q --> DB & FS & M & AV
@@ -38,7 +38,7 @@ flowchart LR
 
 Trust rules:
 - Nothing from the applicant (field values, filenames, MIME headers, IDs in URLs) is trusted. All of it is validated server-side, and applicant-scoped queries always start from the session's applicant.
-- HR requests are trusted only after password + TOTP and policy checks. Destructive or sensitive actions require recent password confirmation.
+- HR requests are trusted only after password + second factor (emailed code by default, or TOTP) and policy checks. Destructive or sensitive actions require recent password confirmation.
 - Email is an untrusted channel. It carries links and generic notices only.
 - Webhooks (future) are verified by provider signature, timestamp tolerance and idempotency key before any processing.
 
@@ -47,7 +47,7 @@ Trust rules:
 | # | Module | Main classes (planned) |
 |---|---|---|
 | 1 | HR auth & accounts | Fortify actions, `HrUserController`, `HrUserService`, `HrUserPolicy`, `portal:hr-user:create` |
-| 2 | HR 2FA | Fortify TOTP, `EnsureTwoFactorEnabled`, `PreventTwoFactorDisable` middleware, `TwoFactorSetupController` |
+| 2 | HR 2FA | `HrEmailCodeService` + `EmailCodeController` (default, emailed code); Fortify TOTP (optional), `EnsureTwoFactorEnabled`, `PreventTwoFactorDisable` middleware, `TwoFactorSetupController` |
 | 3 | Applicants | `Applicant` model, `ApplicantController`, `ApplicantPolicy`, `ApplicantProgressService` |
 | 4 | Invitations | `InvitationService`, `ApplicantInvitation`, `InvitationCode` (generate/HMAC), `ApplicantOtpService` |
 | 5 | Consent | `ConsentVersion`, `ApplicantConsent`, `EnsureConsentAcknowledged` middleware |

@@ -6,6 +6,11 @@
     <section class="card narrow">
         <h1>Two-factor authentication</h1>
 
+        @if ($method === 'email')
+            <p><span class="badge badge-ok">On</span> Each time you sign in, a 6-digit code is emailed to <strong>{{ $user->email }}</strong>. You don't need an authenticator app.</p>
+            <p class="hint">Keep your email account protected with its own strong password and two-step verification, because anyone who can read your email could receive these codes.</p>
+        @else
+
         @if ($required && ! $user->hasConfirmedTwoFactor())
             <div class="alert alert-warning" role="alert">
                 Two-factor authentication is required for all HR accounts. Set it up to continue.
@@ -75,8 +80,9 @@
                 <button type="submit" class="button">Set up two-factor authentication</button>
             </form>
         @endif
+        @endif
     </section>
-    @if ($user->hasConfirmedTwoFactor())
+    @if ($method === 'email' || $user->hasConfirmedTwoFactor())
         <section class="card narrow">
             <h2>Change password</h2>
 

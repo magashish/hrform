@@ -119,7 +119,7 @@ class TemplateTest extends TestCase
 
     public function test_template_writes_require_password_confirmation(): void
     {
-        $this->actingAs($this->hrUser());
+        $this->actingAsHrUnconfirmed();
 
         $this->post('/hr/templates', $this->payload())->assertRedirect('/hr/user/confirm-password');
         $this->assertSame(0, DocumentTemplate::count());

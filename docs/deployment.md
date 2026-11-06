@@ -55,7 +55,7 @@ chown -R www-data:www-data storage bootstrap/cache && chmod -R o-rwx storage
 ```
 
 Then, signed in as HR:
-1. Enrol 2FA.
+1. Enter the sign-in code emailed to you. Test mail delivery before go-live, because HR cannot sign in without it.
 2. **Disclosure** → create the client-approved version and activate it. Applicants cannot proceed until one is active.
 3. **Documents** → upload the current official blank PDFs for I-9 and SSA-89, and add the other client forms.
 4. **Settings** → confirm the filename pattern, reminders, notification recipients and retention.
@@ -152,5 +152,5 @@ php artisan up
 - [ ] Backups configured with agreed retention; restore test performed
 - [ ] Mail deliverability tested (invitation, OTP, reminder, HR alert)
 - [ ] Dry-run retention reports reviewed before enabling auto-purge
-- [ ] Every HR user has enrolled 2FA and stored their recovery codes
+- [ ] HR sign-in codes arrive promptly; HR mailboxes have their own MFA (or `HR_2FA_METHOD=totp` with every user enrolled)
 - [ ] UAT completed with the client's sample forms

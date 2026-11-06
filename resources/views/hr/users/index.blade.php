@@ -29,7 +29,7 @@
                 <tr>
                     <td>{{ $user->name }}</td>
                     <td>{{ $user->email }}</td>
-                    <td>{{ $user->hasConfirmedTwoFactor() ? 'Enabled' : 'Not enrolled' }}</td>
+                    <td>{{ config('portal.hr.two_factor_method') === 'email' ? 'Email code' : ($user->hasConfirmedTwoFactor() ? 'Authenticator app' : 'Not enrolled') }}</td>
                     <td>{{ $user->last_login_at?->timezone(config('app.display_timezone'))->format('Y-m-d H:i') ?? 'Never' }}</td>
                     <td>
                         <span @class(['badge', 'badge-muted' => $user->isDisabled(), 'badge-ok' => ! $user->isDisabled()])>

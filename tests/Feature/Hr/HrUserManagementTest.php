@@ -22,7 +22,7 @@ class HrUserManagementTest extends TestCase
 
     public function test_creating_a_user_requires_password_confirmation(): void
     {
-        $this->actingAs($this->hrUser());
+        $this->actingAsHrUnconfirmed();
 
         $this->post('/hr/users', ['name' => 'New HR', 'email' => 'new@example.com'])
             ->assertRedirect('/hr/user/confirm-password');
@@ -93,7 +93,7 @@ class HrUserManagementTest extends TestCase
     public function test_disable_requires_password_confirmation(): void
     {
         $target = $this->hrUser();
-        $this->actingAs($this->hrUser());
+        $this->actingAsHrUnconfirmed();
 
         $this->post("/hr/users/{$target->id}/disable")->assertRedirect('/hr/user/confirm-password');
         $this->assertFalse($target->fresh()->isDisabled());

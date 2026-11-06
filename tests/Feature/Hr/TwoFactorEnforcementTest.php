@@ -11,6 +11,12 @@ class TwoFactorEnforcementTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->useTotp();
+    }
+
     public function test_user_without_two_factor_is_forced_to_enrol(): void
     {
         $user = User::factory()->create();

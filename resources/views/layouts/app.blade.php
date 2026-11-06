@@ -15,7 +15,19 @@
     <div class="container header-inner">
         <a class="brand" href="{{ auth()->check() ? route('hr.dashboard') : route('home') }}">{{ config('app.name') }}</a>
 
+        @php($hrReady = auth()->check() && (! config('portal.hr.two_factor_required')
+            || (config('portal.hr.two_factor_method') === 'email'
+                ? (int) session(\App\Services\Hr\HrEmailCodeService::SESSION_PASSED) === auth()->id()
+                : auth()->user()->hasConfirmedTwoFactor())))
         @auth
+            @unless ($hrReady)
+            <nav aria-label="HR navigation" class="nav">
+                <form method="POST" action="{{ route('logout') }}" class="inline">
+                    @csrf
+                    <button type="submit" class="link-button">Log out</button>
+                </form>
+            </nav>
+            @else
             <nav aria-label="HR navigation" class="nav">
                 <a href="{{ route('hr.dashboard') }}" @class(['active' => request()->routeIs('hr.dashboard')])>Dashboard</a>
                 <a href="{{ route('hr.applicants.index') }}" @class(['active' => request()->routeIs('hr.applicants.*', 'hr.documents.*')])>Applicants</a>
@@ -30,6 +42,7 @@
                     <button type="submit" class="link-button">Log out</button>
                 </form>
             </nav>
+            @endunless
         @endauth
     </div>
 </header>

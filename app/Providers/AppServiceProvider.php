@@ -48,6 +48,9 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(10)->by('portal-otp-s:'.$request->session()->getId()),
         ]);
 
+        RateLimiter::for('hr-code-verify', fn (Request $request) => Limit::perMinute(10)->by('hr-code-verify:'.($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('hr-code-resend', fn (Request $request) => Limit::perMinute(5)->by('hr-code-resend:'.($request->user()?->id ?? $request->ip())));
+
         RateLimiter::for('portal-upload', fn (Request $request) => Limit::perMinute(30)->by('portal-upload:'.$request->session()->getId()));
     }
 

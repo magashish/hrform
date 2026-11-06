@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Models\User;
+use App\Services\Hr\HrEmailCodeService;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Storage;
 use PragmaRX\Google2FA\Google2FA;
@@ -31,9 +32,27 @@ abstract class TestCase extends BaseTestCase
     {
         $user ??= $this->hrUser();
 
-        $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
+        $this->actingAs($user)->withSession([
+            'auth.password_confirmed_at' => time(),
+            HrEmailCodeService::SESSION_PASSED => $user->id,
+        ]);
 
         return $user;
+    }
+
+    /** Signed in and past the second factor, but without a recent password confirmation. */
+    protected function actingAsHrUnconfirmed(?User $user = null): User
+    {
+        $user ??= $this->hrUser();
+
+        $this->actingAs($user)->withSession([HrEmailCodeService::SESSION_PASSED => $user->id]);
+
+        return $user;
+    }
+
+    protected function useTotp(): void
+    {
+        config(['portal.hr.two_factor_method' => 'totp']);
     }
 
     protected function currentTotp(string $secret = self::TOTP_SECRET): string

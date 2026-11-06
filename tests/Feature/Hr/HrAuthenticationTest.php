@@ -11,6 +11,12 @@ class HrAuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->useTotp();
+    }
+
     public function test_login_page_renders(): void
     {
         $this->get('/hr/login')->assertOk()->assertSee('HR sign in');

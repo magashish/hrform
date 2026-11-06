@@ -64,7 +64,9 @@ class CreateHrUser extends Command
         $users->create($name, $email, $password, via: 'cli');
 
         $this->info('HR user created.'.($password === null ? ' A set-password link has been emailed.' : ''));
-        $this->line('Two-factor enrolment will be required at first login.');
+        $this->line(config('portal.hr.two_factor_method') === 'email'
+            ? 'A one-time sign-in code will be emailed at every login.'
+            : 'Authenticator-app enrolment will be required at first login.');
 
         return self::SUCCESS;
     }

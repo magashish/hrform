@@ -52,6 +52,7 @@ class SecurityBaselineTest extends TestCase
 
     public function test_two_factor_qr_code_page_is_csp_compatible(): void
     {
+        $this->useTotp();
         $user = User::factory()->create();
         $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
         $this->post('/hr/user/two-factor-authentication');

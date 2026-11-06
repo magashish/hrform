@@ -18,13 +18,13 @@ A secure, temporary portal where HR invites applicants and new hires to complete
 
 ## Stack
 
-- PHP 8.2+ (8.3 recommended), **Laravel 12**, Laravel Fortify (HR login + TOTP 2FA)
+- PHP 8.2+ (8.3 recommended), **Laravel 12**, Laravel Fortify (HR login); second factor = **one-time code by email** (default) or authenticator app
 - PostgreSQL 14+ (recommended) or MySQL 8. SQLite is fine for local trials.
 - **No Node.js.** Blade templates, plain CSS (`public/css/app.css`) and a small vanilla JS file (`public/js/app.js`). There is no build step.
 
 ## How it works
 
-**HR** (`/hr`): sign in with password + authenticator app, then:
+**HR** (`/hr`): sign in with password, then enter the 6-digit code emailed to you, then:
 
 1. **Disclosure**: create and activate the consent text applicants must accept.
 2. **Documents**: set up templates (online form, upload, or acknowledgement; wet signature or none; accepted file types; supporting files; printable blank PDF). I-9 and SSA-89 are pre-configured as wet signature.
@@ -76,13 +76,14 @@ php artisan queue:work
 php artisan schedule:work
 ```
 
-Open `http://localhost:8000/hr/login`. At first sign-in you'll confirm your password and enrol an authenticator app.
+Open `http://localhost:8000/hr/login`. After your password you'll be asked for a 6-digit code sent to your email (with `MAIL_MAILER=log`, find it in `storage/logs/laravel.log`).
 
 ## Key environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HR_2FA_REQUIRED` | `true` | Mandatory TOTP 2FA for HR |
+| `HR_2FA_REQUIRED` | `true` | Second factor required for HR |
+| `HR_2FA_METHOD` | `email` | `email` = one-time code emailed at each sign-in (10 min, 5 attempts, 3 sends per 15 min); `totp` = authenticator app |
 | `HR_PASSWORD_MIN_LENGTH` | `12` | HR password length |
 | `AUTH_PASSWORD_TIMEOUT` | `900` | Seconds before sensitive actions re-ask for the password |
 | `SESSION_LIFETIME` | `30` | HR idle timeout (minutes) |

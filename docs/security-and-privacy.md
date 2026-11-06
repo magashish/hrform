@@ -18,7 +18,7 @@ This document describes the controls implemented in the portal and the operation
 ## 2. Access control
 
 **HR users** (`/hr`)
-- Email + password (minimum 12 characters, mixed case, number and symbol; optional breached-password check) and **mandatory TOTP 2FA**. HR pages stay locked until 2FA is confirmed, and 2FA cannot be switched off while `HR_2FA_REQUIRED=true`.
+- Email + password (minimum 12 characters, mixed case, number and symbol; optional breached-password check) and a **mandatory second factor**. By default (`HR_2FA_METHOD=email`, client's choice) a 6-digit code is emailed at every sign-in. It is stored only as an HMAC, valid for 10 minutes, allows 5 attempts and at most 3 sends per 15 minutes, and is sent immediately rather than queued. The pass is tied to the user and the session, so logging out or the session expiring requires a new code. HR pages stay locked until the code is entered. **Trade-off:** an emailed code is only as strong as the HR user's mailbox, so HR mailboxes must have their own strong passwords and MFA. `HR_2FA_METHOD=totp` switches to authenticator apps, which are stronger and cannot be switched off while required.
 - Login is rate-limited (5/min per account+IP, 20/min per IP). The password-reset form gives an identical response for known and unknown addresses and is rate-limited per IP.
 - 30-minute idle session timeout. The cookie expires when the browser closes.
 - Sensitive actions require the password again within 15 minutes: settings, templates, HR users, SSN reveal, file deletion, legal hold, packet deletion.

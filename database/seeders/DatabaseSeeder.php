@@ -47,6 +47,6 @@ class DatabaseSeeder extends Seeder
         }
 
         $users->create('Development HR', $email, $password, via: 'seeder');
-        $this->command?->info('Development HR user seeded (2FA enrolment required at first login).');
+        $this->command?->info('Development HR user seeded (second factor required at sign-in).');
     }
 }

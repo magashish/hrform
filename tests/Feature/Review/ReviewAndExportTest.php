@@ -128,7 +128,7 @@ class ReviewAndExportTest extends TestCase
         $doc->forceFill(['form_data' => ['ssn' => '123-45-6789']])->save();
 
         $hr = $this->hrUser();
-        $this->actingAs($hr);
+        $this->actingAsHrUnconfirmed($hr);
         $this->get("/hr/applicants/{$applicant->public_id}/documents/{$doc->id}")->assertSee('***-**-6789')->assertDontSee('123-45-6789');
 
         // Reveal requires a fresh password confirmation.

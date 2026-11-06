@@ -32,6 +32,7 @@ class TwoFactorSetupController extends Controller
             'secretKey' => $pendingConfirmation ? decrypt($user->two_factor_secret) : null,
             'recoveryCodes' => $showRecoveryCodes ? $user->recoveryCodes() : [],
             'required' => (bool) config('portal.hr.two_factor_required'),
+            'method' => config('portal.hr.two_factor_method'),
         ]);
     }
 }

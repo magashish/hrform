@@ -5,7 +5,7 @@
 @section('content')
     <section class="card narrow">
         <h1>Add HR user</h1>
-        <p class="muted">The new user will be emailed a link to set their own password, and must enrol in two-factor authentication at first sign-in.</p>
+        <p class="muted">The new user will be emailed a link to set their own password, @if (config('portal.hr.two_factor_method') === 'email') and will receive a one-time code by email each time they sign in. @else and must set up an authenticator app at first sign-in. @endif</p>
 
         <form method="POST" action="{{ route('hr.users.store') }}" novalidate>
             @csrf

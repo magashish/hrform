@@ -34,8 +34,11 @@ class RecordAuthenticationAudit
 
         $event->user->forceFill(['last_login_at' => now()])->saveQuietly();
 
+        // With the email method the code step follows this event (auth.email_code_verified).
         $this->audit->record('auth.login', $event->user, [
-            'two_factor' => $event->user->hasConfirmedTwoFactor(),
+            'second_factor' => config('portal.hr.two_factor_method') === 'totp'
+                ? ($event->user->hasConfirmedTwoFactor() ? 'totp' : 'totp_not_enrolled')
+                : 'email_code_pending',
         ], hrActor: $event->user);
     }
 
