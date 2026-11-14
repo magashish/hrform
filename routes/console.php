@@ -12,3 +12,4 @@ Schedule::command('portal:exports:cleanup')->everyFifteenMinutes()->withoutOverl
 // Dry-run report unless RETENTION_AUTO_PURGE=true.
 Schedule::command('portal:retention:purge')->dailyAt('02:15')->withoutOverlapping();
 Schedule::command('portal:audit:prune')->dailyAt('02:45')->withoutOverlapping();
+Schedule::command('portal:templates:check-expiry')->weeklyOn(1, '07:40');

@@ -27,7 +27,7 @@ A secure, temporary portal where HR invites applicants and new hires to complete
 **HR** (`/hr`): sign in with password, then enter the 6-digit code emailed to you, then:
 
 1. **Disclosure**: create and activate the consent text applicants must accept.
-2. **Documents**: set up templates (online form, upload, or acknowledgement; wet signature or none; accepted file types; supporting files; printable blank PDF). I-9 and SSA-89 are pre-configured as wet signature.
+2. **Documents**: set up templates (online form, upload, or acknowledgement; wet signature or none; accepted file types; supporting files; printable blank PDF; official edition and expiry date). I-9 and SSA-89 come pre-configured per the client's guidance: both signed by hand. The SSA-89 asks for name, DOB and SSN online and gives the applicant a pre-filled copy to print and sign. Upload the client's SSA-89 and the current official I-9 PDF on these templates.
 3. **Applicants → Add applicant**: name, email and documents. A 7-day invitation is emailed automatically.
 4. Track progress, review each document (approve or request a correction), download files or a ZIP, then **Mark as transferred**. The packet is deleted after the retention period (default 60 days).
 5. **Send new invitation** at any time if the applicant needs more time; their progress is kept.
@@ -115,6 +115,8 @@ Cron runs `php artisan schedule:run` every minute (see [`routes/console.php`](ro
 | `portal:audit:prune` | daily 02:45 | Remove audit events past retention |
 | `portal:heartbeat` | every 5 min | Scheduler health for the System page |
 | `portal:hr-user:create` | manual | Create an HR account |
+| `portal:templates:check-expiry` | weekly (Mon 07:40) | Warn HR about official form editions expiring within 90 days |
+| `portal:templates:apply-client-forms` | manual | Apply the client's I-9 / SSA-89 settings to existing templates |
 
 ## Testing
 

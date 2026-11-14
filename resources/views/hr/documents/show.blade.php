@@ -86,6 +86,12 @@
             @if (in_array($document->status->value, ['submitted', 'under_review'], true))
                 <form method="POST" action="{{ route('hr.documents.approve', [$applicant, $document]) }}">
                     @csrf
+                    @if ($document->signature_mode_snapshot->value === 'wet_signature_upload')
+                        <label class="check">
+                            <input type="checkbox" name="signature_checked" value="1">
+                            I have checked the uploaded document is signed by hand in ink (not a typed or electronic signature) and all required pages are included.
+                        </label>
+                    @endif
                     <button type="submit" class="button">Approve document</button>
                 </form>
             @else

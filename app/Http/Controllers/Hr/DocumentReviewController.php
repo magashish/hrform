@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Hr;
 
+use App\Enums\SignatureMode;
 use App\Http\Controllers\Controller;
 use App\Models\Applicant;
 use App\Models\ApplicantDocument;
@@ -66,8 +67,15 @@ class DocumentReviewController extends Controller
         Gate::authorize('review', $applicant);
         $this->assertBelongs($applicant, $document);
 
+        $wet = $document->signature_mode_snapshot === SignatureMode::WetSignatureUpload;
+        if ($wet) {
+            $request->validate(['signature_checked' => ['accepted']], [
+                'signature_checked.accepted' => 'Confirm that the uploaded document carries a handwritten signature (not typed or electronic) before approving.',
+            ]);
+        }
+
         try {
-            $this->review->approve($document, $request->user());
+            $this->review->approve($document, $request->user(), $wet);
         } catch (LogicException) {
             throw ValidationException::withMessages(['document' => 'This document cannot be approved in its current state.']);
         }

@@ -196,3 +196,4 @@ legend { font-weight: 600; margin-bottom: 6px; }
 .meta { display: inline-block; margin-right: 10px; color: var(--muted); }
 tr.superseded td { color: var(--muted); }
 h3 { font-size: 1.05rem; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; }

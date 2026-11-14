@@ -8,6 +8,14 @@
         <a class="button" href="{{ route('hr.applicants.create') }}">Add applicant</a>
     </div>
 
+    @foreach ($expiringForms as $form)
+        <div class="alert alert-warning" role="status">
+            <strong>{{ $form->document_type_label }}</strong> (edition {{ $form->form_edition ?? 'unknown' }})
+            {{ $form->expiryState() === 'expired' ? 'expired on' : 'expires on' }} {{ $form->form_expires_on->format('F j, Y') }}.
+            Upload the new official edition when it is published. <a href="{{ route('hr.templates.edit', $form) }}">Update template</a>
+        </div>
+    @endforeach
+
     <div class="stats">
         @foreach ($statuses as $status)
             <a class="stat" href="{{ route('hr.applicants.index', ['status' => $status->value]) }}">

@@ -64,6 +64,9 @@ return [
         'default_max_upload_kb' => (int) env('UPLOAD_DEFAULT_MAX_KB', 10240),
         'hard_max_upload_kb' => (int) env('UPLOAD_HARD_MAX_KB', 25600),
 
+        // Warn HR this many days before a template's official form edition expires.
+        'form_expiry_warning_days' => (int) env('FORM_EXPIRY_WARNING_DAYS', 90),
+
         // Delete superseded (corrected) file versions immediately instead of at purge (#18).
         'delete_superseded' => (bool) env('DELETE_SUPERSEDED_FILES', false),
     ],
@@ -87,13 +90,14 @@ return [
     'notifications' => [
         // Empty = all active HR users. Otherwise comma-separated addresses.
         'hr_recipients' => env('HR_NOTIFICATION_RECIPIENTS', ''),
-        'hr_events' => ['document_submitted', 'supporting_uploaded', 'packet_completed', 'delivery_failed', 'purge_failed'],
+        'hr_events' => ['document_submitted', 'supporting_uploaded', 'packet_completed', 'delivery_failed', 'purge_failed', 'form_expiring'],
         'available_hr_events' => [
             'document_submitted' => 'An applicant submits a document',
             'supporting_uploaded' => 'An applicant uploads or replaces a file',
             'packet_completed' => 'An applicant completes all required documents',
             'delivery_failed' => 'An invitation email cannot be delivered',
             'purge_failed' => 'An automatic deletion fails',
+            'form_expiring' => 'An official form (e.g. Form I-9) is about to expire',
         ],
     ],
 

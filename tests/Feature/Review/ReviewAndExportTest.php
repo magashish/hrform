@@ -47,9 +47,14 @@ class ReviewAndExportTest extends TestCase
         $this->get("/hr/applicants/{$applicant->public_id}/documents/{$doc->id}")->assertOk()->assertSee('Approve document');
         $this->assertSame('under_review', $doc->fresh()->status->value);
 
-        $this->post("/hr/applicants/{$applicant->public_id}/documents/{$doc->id}/approve")->assertRedirect();
+        // Wet-signature documents need the reviewer to confirm a handwritten signature.
+        $this->post("/hr/applicants/{$applicant->public_id}/documents/{$doc->id}/approve")->assertSessionHasErrors('signature_checked');
+        $this->assertSame('under_review', $doc->fresh()->status->value);
+
+        $this->post("/hr/applicants/{$applicant->public_id}/documents/{$doc->id}/approve", ['signature_checked' => '1'])->assertRedirect();
 
         $this->assertSame('approved', $doc->fresh()->status->value);
+        $this->assertTrue(AuditEvent::where('event', 'document.approved')->first()->metadata['handwritten_signature_checked']);
         $this->assertSame('ready_for_download', $applicant->fresh()->status->value);
         $this->assertDatabaseHas('audit_events', ['event' => 'document.approved', 'applicant_ref' => $applicant->applicant_ref]);
     }
@@ -200,7 +205,7 @@ class ReviewAndExportTest extends TestCase
     {
         [$applicant, $doc] = $this->submittedDocument();
         $hr = $this->actingAsHr();
-        $this->post("/hr/applicants/{$applicant->public_id}/documents/{$doc->id}/approve");
+        $this->post("/hr/applicants/{$applicant->public_id}/documents/{$doc->id}/approve", ['signature_checked' => '1']);
 
         $this->post("/hr/applicants/{$applicant->public_id}/transfer", [])->assertSessionHasErrors('confirm_transfer');
         $this->post("/hr/applicants/{$applicant->public_id}/transfer", ['confirm_transfer' => '1'])->assertRedirect();

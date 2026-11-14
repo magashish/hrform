@@ -9,6 +9,7 @@ use App\Models\SignatureModeApproval;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Documents\FieldTypeRegistry;
+use App\Services\Documents\PdfPrefillService;
 use App\Services\Files\PrivateFileStore;
 use App\Services\Signatures\SignatureProviderManager;
 use Illuminate\Http\UploadedFile;
@@ -22,6 +23,7 @@ class TemplateService
         private readonly FieldTypeRegistry $types,
         private readonly PrivateFileStore $files,
         private readonly SignatureProviderManager $esign,
+        private readonly PdfPrefillService $prefill,
     ) {}
 
     /**
@@ -39,6 +41,14 @@ class TemplateService
 
         return DB::transaction(function () use ($template, $data, $actor, $creating) {
             $template->fill($data);
+
+            if (! empty($template->prefill_map)) {
+                if (! $template->hasPrintAsset()) {
+                    throw ValidationException::withMessages(['prefill_map' => 'Upload the printable PDF before adding a pre-fill map.']);
+                }
+                $this->prefill->assertPrefillable($template);
+            }
+
             $changed = array_keys($template->getDirty());
             $template->save();
 
@@ -94,12 +104,24 @@ class TemplateService
     {
         $stored = $this->files->store($file, 'templates', ['pdf'], (int) config('portal.files.hard_max_upload_kb'), 'print_asset');
         $old = $template->print_asset_path;
+        $oldMeta = $template->only(['print_asset_path', 'print_asset_name', 'print_asset_sha256']);
 
         $template->forceFill([
             'print_asset_path' => $stored->path,
             'print_asset_name' => $stored->originalName,
             'print_asset_sha256' => $stored->sha256,
         ])->save();
+
+        // A replacement form must still work with the pre-fill map.
+        if (! empty($template->prefill_map)) {
+            try {
+                $this->prefill->assertPrefillable($template);
+            } catch (ValidationException) {
+                $this->files->delete($stored->disk, $stored->path);
+                $template->forceFill($oldMeta)->save();
+                throw ValidationException::withMessages(['print_asset' => 'This PDF cannot be pre-filled (it is encrypted or unsupported). Remove the pre-fill map first, or upload an unencrypted copy.']);
+            }
+        }
 
         if ($old) {
             $this->files->delete($stored->disk, $old);

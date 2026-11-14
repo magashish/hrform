@@ -34,15 +34,15 @@ class ReviewService
         $this->states->transition($document, DocumentStatus::UnderReview);
     }
 
-    public function approve(ApplicantDocument $document, User $reviewer): void
+    public function approve(ApplicantDocument $document, User $reviewer, bool $signatureChecked = false): void
     {
-        DB::transaction(function () use ($document, $reviewer) {
+        DB::transaction(function () use ($document, $reviewer, $signatureChecked) {
             $this->states->transition($document, DocumentStatus::Approved);
             $document->reviewed_at = now();
             $document->reviewer_id = $reviewer->id;
             $document->save();
 
-            $this->audit->record('document.approved', $document, ['template' => $document->template->code],
+            $this->audit->record('document.approved', $document, ['template' => $document->template->code, 'handwritten_signature_checked' => $signatureChecked],
                 hrActor: $reviewer, applicantRef: $document->applicant->applicant_ref);
 
             $this->progress->refresh($document->applicant);

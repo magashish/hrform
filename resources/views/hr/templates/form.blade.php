@@ -30,6 +30,15 @@
                     <p class="hint">Used for {document_type} in the naming pattern, e.g. "I-9".</p>
                 </div>
                 <div class="field">
+                    <label for="form_edition">Official form edition</label>
+                    <input id="form_edition" type="text" name="form_edition" value="{{ old('form_edition', $t?->form_edition) }}" maxlength="60" placeholder="e.g. 01/20/25">
+                </div>
+                <div class="field">
+                    <label for="form_expires_on">Form edition expires on</label>
+                    <input id="form_expires_on" type="date" name="form_expires_on" value="{{ old('form_expires_on', $t?->form_expires_on?->toDateString()) }}">
+                    <p class="hint">HR is warned {{ config('portal.files.form_expiry_warning_days') }} days before (e.g. Form I-9 shows "Expires 05/31/2027").</p>
+                </div>
+                <div class="field">
                     <label for="sort_order">Order</label>
                     <input id="sort_order" type="number" name="sort_order" value="{{ old('sort_order', $t?->sort_order ?? 100) }}" min="0" max="10000">
                 </div>
@@ -86,6 +95,20 @@
             <label class="check"><input type="hidden" name="required_by_default" value="0"><input type="checkbox" name="required_by_default" value="1" @checked(old('required_by_default', $t?->required_by_default ?? true))> Required by default</label>
             <label class="check"><input type="hidden" name="auto_assign" value="0"><input type="checkbox" name="auto_assign" value="1" @checked(old('auto_assign', $t?->auto_assign ?? false))> Pre-select for new applicants</label>
             <label class="check"><input type="hidden" name="active" value="0"><input type="checkbox" name="active" value="1" @checked(old('active', $t?->active ?? true))> Active</label>
+
+            @if ($t)
+                <details class="mt" @if ($t->prefill_map || $errors->has('prefill_map')) open @endif>
+                    <summary>Pre-fill the printable PDF with the applicant's answers (advanced)</summary>
+                    <div class="field mt">
+                        <label for="prefill_map">Pre-fill map (JSON)</label>
+                        <textarea id="prefill_map" name="prefill_map" rows="6" class="mono" spellcheck="false">{{ old('prefill_map', $t->prefill_map ? json_encode($t->prefill_map, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : '') }}</textarea>
+                        <p class="hint">Each entry places one value on the PDF: <code>{"page":1,"x":22,"y":111,"source":"field:ssn","size":10}</code>. x/y are points from the top-left of the page. Sources: <code>applicant.full_name</code>, <code>field:&lt;key&gt;</code>, <code>check:&lt;key&gt;=&lt;value&gt;</code>, <code>text:&lt;fixed text&gt;</code>; dates accept <code>"format":"m/d/Y"</code>. Signature areas are never filled. Encrypted PDFs (such as the official USCIS I-9) cannot be pre-filled.</p>
+                        @if ($t->hasPrefill())
+                            <p><a href="{{ route('hr.templates.prefill-preview', $t) }}" target="_blank" rel="noopener">Preview pre-filled PDF with sample data</a></p>
+                        @endif
+                    </div>
+                </details>
+            @endif
 
             <div class="actions"><button type="submit" class="button">{{ $t ? 'Save template' : 'Create template' }}</button></div>
         </form>
@@ -158,6 +181,7 @@
                     <label class="check inline-check"><input type="checkbox" name="sensitive" value="1"> Sensitive (mask for HR)</label>
                     <label class="check inline-check"><input type="checkbox" name="not_future" value="1"> Date cannot be in the future</label>
                     <label class="check inline-check"><input type="checkbox" name="integer_only" value="1"> Whole numbers only</label>
+                    <label class="check inline-check"><input type="checkbox" name="default_from" value="applicant.full_name"> Start with the applicant's name (text)</label>
                     <div class="actions"><button type="submit" class="button button-small">Add field</button></div>
                 </form>
             </section>

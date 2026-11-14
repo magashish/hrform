@@ -13,6 +13,7 @@ This document describes the controls implemented in the portal and the operation
 | Email one-time codes | `applicant_otps.code_hash` | HMAC only; 10-minute expiry; 5 attempts; rows deleted after a day |
 | HR passwords, 2FA secrets, recovery codes | `users` | bcrypt; 2FA secret and recovery codes encrypted |
 | Audit trail | `audit_events` | Pseudonymous (`applicant_ref` UUID), allowlisted metadata only; append-only |
+| Pre-filled forms (e.g. SSA-89 with name, DOB, SSN) | Never stored | Generated on request from the applicant's encrypted answers, streamed with `no-store`, only to the signed-in applicant who owns the document; each download is audited |
 | Temporary ZIP exports | Private `exports` disk | Requester-only download; expire after `EXPORT_TTL_MINUTES` (default 60), then deleted by the scheduler |
 
 ## 2. Access control
@@ -39,6 +40,7 @@ This document describes the controls implemented in the portal and the operation
 - Extension must be in both the global allowlist (`pdf, jpg, jpeg, png, heic`) and the template's list.
 - Content type is detected from the file bytes (`finfo`), not from the browser, and must match the extension.
 - Rejected outright: PHP/HTML/script markers in images; PDFs containing `/JavaScript`, `/JS`, `/Launch`, `/EmbeddedFile`, `/RichMedia` or `/XFA`. Images must decode.
+- **Limitation:** this check reads the raw file bytes, so it cannot see markers hidden inside *compressed* PDF object streams (common in modern PDFs, including the official I-9). It is a first filter, not a malware scanner; enable ClamAV (`MALWARE_SCANNER=clamav`) for real protection.
 - Per-template size limits, capped by `UPLOAD_HARD_MAX_KB`.
 - Stored under random names with no extension, outside the web root. Original filenames are kept as metadata only. Client-facing names come from the approved naming pattern.
 - Malware scanning: `MALWARE_SCANNER=clamav` streams each file to `clamd`. Infected files are rejected. With `MALWARE_SCANNER_FAIL_CLOSED=true` (the default), uploads are refused if the scanner is unreachable. **The default is `none`**: files are recorded as `not_scanned`, and the HR System page flags this. This is a deployment risk the client must accept or resolve (OPEN_QUESTIONS #13).

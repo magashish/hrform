@@ -38,7 +38,10 @@ class FieldTypeRegistry
     public function normalizeConfig(string $type, array $input): array
     {
         $rules = match ($type) {
-            'text' => ['max_length' => ['nullable', 'integer', 'min:1', 'max:500']],
+            'text' => [
+                'max_length' => ['nullable', 'integer', 'min:1', 'max:500'],
+                'default_from' => ['nullable', 'in:applicant.full_name'],
+            ],
             'textarea' => ['max_length' => ['nullable', 'integer', 'min:1', 'max:5000']],
             'number' => [
                 'min' => ['nullable', 'numeric'],

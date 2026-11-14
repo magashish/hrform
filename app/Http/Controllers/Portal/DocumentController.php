@@ -4,15 +4,20 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\ApplicantDocument;
+use App\Models\AuditEvent;
 use App\Services\Applicants\CurrentApplicant;
+use App\Services\Audit\AuditLogger;
 use App\Services\Documents\ApplicantDocumentService;
 use App\Services\Documents\DocumentReadiness;
 use App\Services\Documents\FieldTypeRegistry;
+use App\Services\Documents\PdfPrefillService;
 use App\Support\FileResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -108,11 +113,35 @@ class DocumentController extends Controller
             : redirect()->route('portal.home')->with('portal_notice', '"'.$doc->template->name.'" has been submitted.');
     }
 
-    public function printForm(string $document): StreamedResponse
+    public function printForm(string $document, DocumentReadiness $readiness, PdfPrefillService $prefill, AuditLogger $audit): StreamedResponse|Response|RedirectResponse
     {
-        $doc = $this->resolve($document, ['template']);
+        $doc = $this->resolve($document, ['template.fields']);
         $template = $doc->template;
         abort_unless($template->hasPrintAsset(), 404);
+
+        // Forms with a pre-fill map are generated on the fly with the
+        // applicant's own answers, streamed and never stored.
+        if ($template->hasPrefill() && $doc->hasForm()) {
+            if ($readiness->missing($doc)['form']) {
+                return redirect()->route('portal.documents.show', $doc->id)
+                    ->with('portal_notice', 'Please complete and save your information first. Your form will then be filled in for you to print.');
+            }
+
+            $audit->record('document.prefilled_downloaded', $doc, ['template' => $template->code],
+                applicantRef: $doc->applicant->applicant_ref,
+                actorType: AuditEvent::ACTOR_APPLICANT,
+                actorId: $doc->applicant->applicant_ref);
+
+            $name = ($template->document_type_label ?: 'form').'-to-print-and-sign.pdf';
+
+            return response($prefill->render($doc), 200, [
+                'Content-Type' => 'application/octet-stream',
+                'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $name, 'form-to-print.pdf'),
+                'X-Content-Type-Options' => 'nosniff',
+                'Content-Security-Policy' => "default-src 'none'; sandbox",
+                'Cache-Control' => 'no-store, private',
+            ]);
+        }
 
         $name = ($template->document_type_label ?: 'form').'-to-print.pdf';
 

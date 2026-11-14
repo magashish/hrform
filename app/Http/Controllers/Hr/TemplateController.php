@@ -8,11 +8,13 @@ use App\Http\Controllers\Controller;
 use App\Models\DocumentField;
 use App\Models\DocumentTemplate;
 use App\Services\Documents\FieldTypeRegistry;
+use App\Services\Documents\PdfPrefillService;
 use App\Services\Settings\SettingsService;
 use App\Services\Signatures\SignatureProviderManager;
 use App\Services\Templates\TemplateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -75,7 +77,7 @@ class TemplateController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:10000'],
         ], ['field_key.regex' => 'Use lower-case letters, numbers and underscores, starting with a letter.']);
 
-        $this->templates->addField($template, $data, $request->only(['max_length', 'min', 'max', 'integer_only', 'not_future', 'not_past', 'options', 'statement']), $request->user());
+        $this->templates->addField($template, $data, $request->only(['max_length', 'min', 'max', 'integer_only', 'not_future', 'not_past', 'options', 'statement', 'default_from']), $request->user());
 
         return back()->with('status', 'Field added.');
     }
@@ -94,6 +96,23 @@ class TemplateController extends Controller
         $this->templates->uploadPrintAsset($template, $request->file('print_asset'), $request->user());
 
         return back()->with('status', 'Printable form uploaded.');
+    }
+
+    /**
+     * Pre-filled PDF with obviously fake sample data, so HR can check the
+     * text lines up with the form before applicants use it.
+     */
+    public function prefillPreview(DocumentTemplate $template, PdfPrefillService $prefill): Response
+    {
+        abort_unless($template->hasPrefill(), 404);
+        $template->load('fields');
+
+        return response($prefill->renderSample($template), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="prefill-preview.pdf"',
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
+            'Cache-Control' => 'no-store, private',
+        ]);
     }
 
     public function recordApproval(Request $request, DocumentTemplate $template): RedirectResponse
@@ -132,6 +151,9 @@ class TemplateController extends Controller
             'supporting_requirements' => ['nullable', 'string', 'max:5000'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:10000'],
             'active' => ['sometimes', 'boolean'],
+            'form_edition' => ['nullable', 'string', 'max:60'],
+            'form_expires_on' => ['nullable', 'date'],
+            'prefill_map' => ['nullable', 'string', 'max:20000'],
         ], ['code.regex' => 'Use upper-case letters, numbers, hyphens and underscores.']);
 
         $data['required_by_default'] = $request->boolean('required_by_default');
@@ -140,6 +162,7 @@ class TemplateController extends Controller
         $data['sort_order'] = (int) ($data['sort_order'] ?? 100);
         $data['allowed_extensions'] = array_values(array_unique($data['allowed_extensions']));
         $data['supporting_requirements'] = $this->parseRequirements((string) ($data['supporting_requirements'] ?? ''));
+        $data['prefill_map'] = app(PdfPrefillService::class)->normalizeMap($data['prefill_map'] ?? null, $template ?? new DocumentTemplate);
 
         return $data;
     }

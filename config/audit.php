@@ -77,7 +77,8 @@ return [
         'document.submitted' => ['template', 'resubmission'],
 
         // Review and export (HR actions)
-        'document.approved' => ['template'],
+        'document.approved' => ['template', 'handwritten_signature_checked'],
+        'document.prefilled_downloaded' => ['template'],
         'document.correction_requested' => ['template', 'scope'],
         'document.viewed' => ['template'],
         'sensitive_field.revealed' => ['template', 'field'],

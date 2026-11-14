@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Models\DocumentTemplate;
 use App\Services\Files\FileScanner;
 use App\Services\Retention\RetentionService;
 use App\Services\Signatures\SignatureProviderManager;
@@ -32,6 +33,7 @@ class SystemController extends Controller
                 ['Debug mode', config('app.debug') ? 'ON' : 'Off', ! config('app.debug')],
                 ['HTTPS-only session cookie', config('session.secure') ? 'Yes' : 'No', (bool) config('session.secure') || ! app()->environment('production')],
                 ['Mail transport', (string) config('mail.default'), config('mail.default') !== 'log' || ! app()->environment('production')],
+                ['Official forms expired or expiring within '.config('portal.files.form_expiry_warning_days').' days', (string) DocumentTemplate::query()->expiringSoon()->count(), DocumentTemplate::query()->expiringSoon()->count() === 0],
                 ['Automatic retention purge', config('portal.retention.auto_purge') ? 'Enabled' : 'Disabled (dry-run reports only)', true],
             ],
             'retention' => $retention->report(),

@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Enums\InputMode;
 use App\Enums\SignatureMode;
 use Database\Factories\DocumentTemplateFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -27,6 +29,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $print_asset_path
  * @property string|null $print_asset_name
  * @property string|null $print_asset_sha256
+ * @property string|null $form_edition
+ * @property Carbon|null $form_expires_on
+ * @property list<array<string, mixed>>|null $prefill_map
  * @property int $sort_order
  * @property bool $active
  */
@@ -40,6 +45,7 @@ class DocumentTemplate extends Model
         'code', 'name', 'document_type_label', 'description', 'instructions', 'input_mode',
         'signature_mode', 'required_by_default', 'auto_assign', 'allowed_extensions', 'max_size_kb',
         'supporting_requirements', 'filename_pattern', 'sort_order', 'active',
+        'form_edition', 'form_expires_on', 'prefill_map',
     ];
 
     /** @var array<string, mixed> */
@@ -51,6 +57,9 @@ class DocumentTemplate extends Model
         'print_asset_path' => null,
         'print_asset_name' => null,
         'print_asset_sha256' => null,
+        'form_edition' => null,
+        'form_expires_on' => null,
+        'prefill_map' => null,
         'required_by_default' => true,
         'auto_assign' => false,
         'sort_order' => 100,
@@ -69,6 +78,8 @@ class DocumentTemplate extends Model
             'max_size_kb' => 'integer',
             'sort_order' => 'integer',
             'active' => 'boolean',
+            'form_expires_on' => 'date',
+            'prefill_map' => 'array',
         ];
     }
 
@@ -100,5 +111,37 @@ class DocumentTemplate extends Model
     public function hasPrintAsset(): bool
     {
         return $this->print_asset_path !== null;
+    }
+
+    public function hasPrefill(): bool
+    {
+        return $this->hasPrintAsset() && ! empty($this->prefill_map);
+    }
+
+    /**
+     * expired | expiring (within the warning window) | ok | null (no expiry recorded)
+     */
+    public function expiryState(): ?string
+    {
+        if ($this->form_expires_on === null) {
+            return null;
+        }
+
+        $warnDays = (int) config('portal.files.form_expiry_warning_days', 90);
+
+        return match (true) {
+            $this->form_expires_on->endOfDay()->isPast() => 'expired',
+            $this->form_expires_on->lte(now()->addDays($warnDays)) => 'expiring',
+            default => 'ok',
+        };
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    public function scopeExpiringSoon($query): void
+    {
+        $query->where('active', true)->whereNotNull('form_expires_on')
+            ->whereDate('form_expires_on', '<=', now()->addDays((int) config('portal.files.form_expiry_warning_days', 90)));
     }
 }

@@ -282,3 +282,29 @@ The client does not want HR staff to use an authenticator app.
 - `HR_2FA_METHOD=totp` restores authenticator apps.
 - **Risk:** this is weaker than TOTP if an HR mailbox is compromised. The client should require MFA on HR mailboxes (recorded in docs/security-and-privacy.md).
 - Tests: 7 new tests; full suite 130 passing on PostgreSQL.
+
+---
+
+## 10. Client form guidance: I-9 and SSA-89 (2026-11-14)
+
+**Input received:** USCIS note on the fillable I-9; the HR consultant firm's guidance on I-9 e-signature and the SSA-89 handwritten-signature requirement; the client's SSA-89 (05-2025) with company and agent pre-completed; the official I-9 (edition 01/20/25, expires 05/31/2027).
+
+**Analysis**
+
+| Topic | Finding | Decision / change |
+|---|---|---|
+| I-9 signature | USCIS: the fillable PDF must be printed and signed by hand. Consultant: e-sign only with a compliant system; none is in use. | Wet signature (unchanged). Recorded as a decision. |
+| I-9 pre-fill | The official PDF is **encrypted** (AcroForm, 133 fields); FPDI cannot open it, and filling it would need extra server tools (qpdf/pdftk). | Not pre-filled. Applicants may type into the fillable PDF themselves, then print pages 1–2 and sign by hand. Instructions forbid typing in the signature box. |
+| I-9 content | Section 2 is employer-only (physical document examination within 3 business days); Section 1 must be completed no later than day 1 and not before accepting the offer. Client says the I-9 is "obtained on day 1". | Portal collects the hand-signed Section 1 only. Timing/packet inclusion raised as OPEN_QUESTIONS #20, Section 2 as #21. |
+| I-9 expiry | Edition expires 05/31/2027 ("next year"). | **Built:** template edition and expiry fields, warnings on the dashboard, Documents list and System page, and a weekly HR email (`portal:templates:check-expiry`) from 90 days before. |
+| SSA-89 signature | Handwritten signature required by SSA's verification program. | Wet signature (unchanged). Recorded as a decision. |
+| SSA-89 pre-fill | The client's copy is a flat "Print to PDF" file with company and agent filled in; name, DOB and SSN boxes are blank. | **Built:** the online form asks for name (starts with the HR-entered name), DOB and SSN, then a pre-filled PDF is generated with those three values at fixed positions. Generated on download, never stored, owner-only and audited. The applicant prints, ticks the reason, signs and dates by hand, and uploads. |
+| Review | A typed name in the signature box would invalidate both forms. | **Built:** approving any wet-signature document requires HR to confirm a handwritten ink signature and all pages. |
+| Upload checks | Both real PDFs pass validation. The raw-byte script check cannot see inside compressed object streams (the I-9 uses them). | Documented as a limitation; ClamAV recommended. |
+| Dependencies | `composer audit` showed 10 new advisories (Laravel < 12.71, Symfony 7.4.22). | Updated to Laravel 12.72.0 / Symfony 7.4.23; audit clean. Added `setasign/fpdi` + `setasign/fpdf` (MIT, pure PHP). |
+
+**Built (generic, so other client forms can use it):** `PdfPrefillService` with a validated per-template JSON map (sources: applicant name, form fields, fixed text, checkbox marks; date formats; shrink-to-fit). An encrypted PDF is rejected when a map is present. HR gets a "Preview pre-filled PDF with sample data" link. The `portal:templates:apply-client-forms` command updates existing installs.
+
+**Tests:** 8 new tests (`ClientFormsTest`) plus updated review tests. 138 pass on PostgreSQL; on SQLite 135 pass and the 3 PostgreSQL-only tests are skipped. The real client SSA-89 was pre-filled through the app and checked visually.
+
+**Waiting on the client:** the remaining forms ("first of next week"), plus OPEN_QUESTIONS #20–#24.

@@ -141,6 +141,7 @@ Route::prefix('hr')->name('hr.')->middleware(['auth', EnsureHrUserIsActive::clas
         Route::delete('templates/{template}/fields/{field}', [TemplateController::class, 'removeField'])->whereNumber(['template', 'field'])->middleware('password.confirm')->name('templates.fields.destroy');
         Route::post('templates/{template}/print-asset', [TemplateController::class, 'uploadPrintAsset'])->whereNumber('template')->middleware('password.confirm')->name('templates.print-asset');
         Route::get('templates/{template}/print-asset', [FileController::class, 'templateAsset'])->whereNumber('template')->name('templates.print-asset.show');
+        Route::get('templates/{template}/prefill-preview', [TemplateController::class, 'prefillPreview'])->whereNumber('template')->name('templates.prefill-preview');
         Route::post('templates/{template}/approvals', [TemplateController::class, 'recordApproval'])->whereNumber('template')->middleware('password.confirm')->name('templates.approvals.store');
 
         Route::get('consent', [ConsentVersionController::class, 'index'])->name('consent.index');

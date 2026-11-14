@@ -1,4 +1,5 @@
 @php($id = 'f_'.$field->field_key)
+@php($value = $value ?? ($field->configValue('default_from') === 'applicant.full_name' ? $document->applicant->fullName() : null))
 <div class="field">
     @switch($field->type)
         @case('checkbox')
