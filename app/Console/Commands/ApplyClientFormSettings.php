@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Models\AuditEvent;
 use App\Models\DocumentTemplate;
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Services\Templates\TemplateService;
 use Database\Seeders\DefaultTemplatesSeeder;
 use Illuminate\Console\Command;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,16 +21,23 @@ use Illuminate\Support\Facades\DB;
  */
 class ApplyClientFormSettings extends Command
 {
-    protected $signature = 'portal:templates:apply-client-forms {--dry-run : Show what would change}';
+    protected $signature = 'portal:templates:apply-client-forms
+        {--dry-run : Show what would change}
+        {--pdfs= : Folder holding the client\'s blank PDFs (e.g. Last_Name_First_Name_Emp_Data.pdf) to install as printable forms}';
 
-    protected $description = 'Configure the I-9 and SSA-89 templates per the client guidance (wet signature, SSA-89 pre-fill)';
+    protected $description = 'Configure the client\'s onboarding templates (I-9, SSA-89 and the pre-hire packet forms)';
 
-    public function handle(AuditLogger $audit): int
+    public function handle(AuditLogger $audit, TemplateService $templates): int
     {
-        $definitions = DefaultTemplatesSeeder::definitions();
+        $definitions = DefaultTemplatesSeeder::allDefinitions();
+        $pdfDir = $this->option('pdfs') ? rtrim((string) $this->option('pdfs'), '/') : null;
+        if ($pdfDir !== null && ! is_dir($pdfDir)) {
+            $this->error("Folder not found: {$pdfDir}");
 
-        foreach (['I9', 'SSA89'] as $code) {
-            $def = $definitions[$code];
+            return self::FAILURE;
+        }
+
+        foreach ($definitions as $code => $def) {
             $template = DocumentTemplate::firstOrNew(['code' => $code]);
             $verb = $template->exists ? 'Updating' : 'Creating';
             $this->info("{$verb} {$code}: {$def['template']['name']}");
@@ -57,11 +67,26 @@ class ApplyClientFormSettings extends Command
                     'fields' => 'client_form_settings',
                 ], actorType: AuditEvent::ACTOR_SYSTEM);
             });
+
+            // Install the client's blank form, if supplied (validated like any upload).
+            $source = $pdfDir !== null && isset($def['source_pdf']) ? $pdfDir.'/'.$def['source_pdf'] : null;
+            if ($source !== null && is_file($source)) {
+                $operator = User::query()->orderBy('id')->first();
+                if (! $operator) {
+                    $this->warn('  No HR user exists yet: create one, then re-run to install PDFs.');
+
+                    continue;
+                }
+                $templates->uploadPrintAsset($template->fresh(), new UploadedFile($source, basename($source), 'application/pdf', null, true), $operator);
+                $this->line('  Installed printable form '.basename($source));
+            } elseif ($source !== null) {
+                $this->warn('  Not found: '.basename($source));
+            }
         }
 
         $this->newLine();
-        $this->line('Next: in HR → Documents, upload the client\'s SSA-89 (with company details) and the current official I-9 PDF on each template,');
-        $this->line('then use "Preview pre-filled PDF" on the SSA-89 template to check the alignment.');
+        $this->line('Next: in HR → Documents, check each template has its printable PDF (I-9, SSA-89 and any not installed with --pdfs),');
+        $this->line('then use "Preview pre-filled PDF" on each template to check the alignment.');
         $this->warn('Documents already assigned to applicants keep their previous settings; new assignments use the new ones.');
 
         return self::SUCCESS;

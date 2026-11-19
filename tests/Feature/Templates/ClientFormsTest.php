@@ -105,7 +105,7 @@ class ClientFormsTest extends TestCase
         $this->put("/portal/documents/{$doc->id}/draft", [
             'printed_name' => 'María J. García', 'date_of_birth' => '1990-01-15', 'ssn' => '123456789',
         ])->assertRedirect();
-        $this->get("/portal/documents/{$doc->id}")->assertSee('Download your pre-filled form');
+        $this->get("/portal/documents/{$doc->id}")->assertSee('Download your form (PDF)');
 
         $response = $this->get("/portal/documents/{$doc->id}/print");
         $response->assertOk();

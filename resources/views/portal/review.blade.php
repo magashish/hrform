@@ -30,6 +30,10 @@
         </ul>
     </section>
 
+    @if ($editable && $document->hasForm() && $template->hasPrefill() && $document->signature_mode_snapshot->value === 'none')
+        <p class="hint">When you submit, your answers are typed onto the official form and sent to HR. No printing or signature is needed.</p>
+    @endif
+
     @if (! $editable)
         <div class="alert alert-success" role="status">This document has already been submitted.</div>
     @elseif ($ready)

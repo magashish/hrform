@@ -323,3 +323,30 @@ The client does not want HR staff to use an authenticator app.
 | FCRA summary + Contingent Job Offer first | **Notices:** the single disclosure became versioned notice types: Contingent Job Offer → FCRA Summary of Rights → Disclosure and consent (order configurable). Each is shown on its own page ("step 1 of 3") and acknowledged before any form; a type with no active version is skipped. Text supports {first_name}, {last_name}, {full_name} and {position_title} (new optional applicant field), always HTML-escaped. Each version can include a PDF (e.g. the CFPB summary). Applicants can re-read acknowledged notices from their home page. HR manages them under **Notices**. |
 
 **Tests:** 8 new stage/notice tests plus naming tests. 148 pass on PostgreSQL; on SQLite 145 pass and the 3 PostgreSQL-only tests are skipped. Verified end-to-end in a browser: HR creates an applicant with per-document stages, the applicant goes through the 3 notices on a phone, HR releases "After screening clears" and the applicant sees the new documents.
+
+---
+
+## 12. Pre-hire packet forms configured (2026-11-19)
+
+**Received:** five Buffalo Valley forms ("Microsoft Print to PDF": flat, unencrypted, no form fields), so all can be pre-filled.
+
+| Form (code, file label) | Pages | Signature | How it works now | Stage |
+|---|---|---|---|---|
+| Biographical Data Sheet (EMPDATA, "Emp Data") | 2 | Applicant (wet) | Download with name pre-filled → print → complete in ink → sign page 2 → upload. Optional "additional sheet" upload. | Initial |
+| Education Verification: Degree + HS/GED (EDVER, "Ed Ver") | 2 | Applicant on both pages | Name pre-filled on both pages; print, complete, sign both, upload as one file | Initial |
+| Employment Verification: Current + Previous (EMPVER, "Emp Ver") | 2 | Applicant on both pages | As Ed Ver | Initial |
+| Reference Verification and Check (REFERENCE, "Reference") | 1 | **None for the applicant** (supervisor signs) | **Completed online.** On submit the portal types the applicant's name, email and three references onto the form, boxes the circled options (Friend/Family/Coworker/Employer, Y/N), and files it as "Last, First Reference.pdf". Enforces the form's rules: one family reference max, at least one known 5+ years. Optional reference-letter uploads. | Initial |
+| User Access Request & Compliance (USERACCESS, "User") | 1 | User (wet) + manager | Legal name pre-filled; applicant completes User Information and signs | Day 1 |
+
+The I-9's default stage moved to **Day 1** (client: "obtained on day 1 of hire").
+
+**New capabilities (generic):**
+- Pre-fill for upload-only forms (applicant name and email without an online form).
+- "Circle one" boxes in the pre-fill map (`circle:<field>=<value>` with `w`/`h`).
+- Generated document on submit for online forms that need no signature.
+- Per-form cross-field rules (`config/portal.php` → `form_rules`).
+- `portal:templates:apply-client-forms --pdfs=<folder>` installs the client's blank PDFs (validated like any upload).
+
+**Checked against the real PDFs:** names (including accents) land on the "I, ____" / "Name" / "Legal Name" lines of every page, and the Reference form fills all three references with the options boxed.
+
+**Tests:** 5 new (`PacketFormsTest`). 153 pass on PostgreSQL; on SQLite 150 pass and the 3 PostgreSQL-only tests are skipped. **Open:** #26–#27 and #33–#38.

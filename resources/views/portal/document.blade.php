@@ -68,12 +68,12 @@
             @if ($document->signature_mode_snapshot->value === 'wet_signature_upload')
                 <h2>Sign by hand and upload</h2>
                 <ol>
-                    @if ($template->hasPrefill() && $document->hasForm())
+                    @if ($template->hasPrefill())
                         <li>
-                            @if ($missing['form'])
+                            @if ($document->hasForm() && $missing['form'])
                                 Complete and save your information above. Your form will then be filled in for you.
                             @else
-                                <a href="{{ route('portal.documents.print', $document->id) }}">Download your pre-filled form (PDF)</a> and print it.
+                                <a href="{{ route('portal.documents.print', $document->id) }}">Download your form (PDF)</a>{{ $document->hasForm() ? ' (filled in with your answers)' : ' (your name is already filled in)' }} and print it.
                             @endif
                         </li>
                     @else

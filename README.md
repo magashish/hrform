@@ -116,7 +116,7 @@ Cron runs `php artisan schedule:run` every minute (see [`routes/console.php`](ro
 | `portal:heartbeat` | every 5 min | Scheduler health for the System page |
 | `portal:hr-user:create` | manual | Create an HR account |
 | `portal:templates:check-expiry` | weekly (Mon 07:40) | Warn HR about official form editions expiring within 90 days |
-| `portal:templates:apply-client-forms` | manual | Apply the client's I-9 / SSA-89 settings to existing templates |
+| `portal:templates:apply-client-forms [--pdfs=<folder>]` | manual | Create/update the client's templates (I-9, SSA-89, Emp Data, Ed Ver, Emp Ver, Reference, User) and optionally install their blank PDFs from a folder |
 
 ## Testing
 

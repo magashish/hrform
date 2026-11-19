@@ -41,6 +41,15 @@ class FormService
             $clean[$field->field_key] = $this->types->normalizeValue($field, $data[$field->field_key] ?? null);
         }
 
+        // Form-specific rules across fields (e.g. "only one family reference").
+        $rulesClass = config('portal.form_rules.'.$document->template->code);
+        if ($submitting && is_string($rulesClass) && is_subclass_of($rulesClass, Rules\FormRules::class)) {
+            $errors = app($rulesClass)->check($clean);
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+        }
+
         return $clean;
     }
 

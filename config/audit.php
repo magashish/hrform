@@ -76,6 +76,7 @@ return [
         'document.uploaded' => ['template', 'version', 'size', 'sha256_prefix', 'scan', 'replacement'],
         'supporting.uploaded' => ['template', 'requirement', 'version', 'size', 'sha256_prefix', 'scan', 'replacement'],
         'document.submitted' => ['template', 'resubmission'],
+        'document.generated' => ['template', 'version', 'sha256_prefix'],
 
         // Review and export (HR actions)
         'document.approved' => ['template', 'handwritten_signature_checked'],

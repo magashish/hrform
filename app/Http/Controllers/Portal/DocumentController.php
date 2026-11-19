@@ -121,8 +121,8 @@ class DocumentController extends Controller
 
         // Forms with a pre-fill map are generated on the fly with the
         // applicant's own answers, streamed and never stored.
-        if ($template->hasPrefill() && $doc->hasForm()) {
-            if ($readiness->missing($doc)['form']) {
+        if ($template->hasPrefill()) {
+            if ($doc->hasForm() && $readiness->missing($doc)['form']) {
                 return redirect()->route('portal.documents.show', $doc->id)
                     ->with('portal_notice', 'Please complete and save your information first. Your form will then be filled in for you to print.');
             }

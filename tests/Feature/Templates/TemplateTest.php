@@ -29,7 +29,7 @@ class TemplateTest extends TestCase
         $this->seed(DefaultTemplatesSeeder::class);
         $this->seed(DefaultTemplatesSeeder::class); // idempotent
 
-        $this->assertSame(2, DocumentTemplate::count());
+        $this->assertSame(7, DocumentTemplate::count()); // I-9, SSA-89 + the five pre-hire packet forms
         foreach (['I9', 'SSA89'] as $code) {
             $t = DocumentTemplate::where('code', $code)->firstOrFail();
             $this->assertSame('wet_signature_upload', $t->signature_mode->value);

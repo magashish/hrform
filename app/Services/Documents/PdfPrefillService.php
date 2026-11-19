@@ -23,12 +23,15 @@ use Throwable;
  * - The generated PDF is streamed to the applicant and never stored.
  *
  * Map entry: {"page":1,"x":22,"y":111,"source":"field:date_of_birth","format":"m/d/Y","size":10}
- * Sources: applicant.full_name | applicant.first_name | applicant.last_name |
- *          field:<field_key> | text:<fixed text> | check:<field_key>=<value> (draws an X)
+ * Sources: applicant.full_name | applicant.first_name | applicant.last_name | applicant.email |
+ *          field:<field_key> | text:<fixed text> | check:<field_key>=<value> (draws an X) |
+ *          circle:<field_key>=<value> (draws a box of w x h around a printed option, e.g. "FRIEND" or "Y")
  */
 class PdfPrefillService
 {
-    private const KEYS = ['page', 'x', 'y', 'source', 'format', 'size', 'max_width'];
+    private const KEYS = ['page', 'x', 'y', 'source', 'format', 'size', 'max_width', 'w', 'h'];
+
+    private const APPLICANT_SOURCES = ['applicant.full_name', 'applicant.first_name', 'applicant.last_name', 'applicant.email'];
 
     private const DATE_FORMATS = ['m/d/Y', 'Y-m-d', 'd/m/Y', 'mdY'];
 
@@ -73,12 +76,15 @@ class PdfPrefillService
             }
 
             $source = (string) ($entry['source'] ?? '');
-            $valid = in_array($source, ['applicant.full_name', 'applicant.first_name', 'applicant.last_name'], true)
+            $valid = in_array($source, self::APPLICANT_SOURCES, true)
                 || (preg_match('/^field:([a-z][a-z0-9_]*)$/', $source, $m) && in_array($m[1], $fieldKeys, true))
-                || (preg_match('/^check:([a-z][a-z0-9_]*)=(.{1,200})$/', $source, $c) && in_array($c[1], $fieldKeys, true))
+                || (preg_match('/^(check|circle):([a-z][a-z0-9_]*)=(.{1,200})$/', $source, $c) && in_array($c[2], $fieldKeys, true))
                 || (preg_match('/^text:(.{1,200})$/su', $source) === 1);
             if (! $valid) {
-                $fail("Entry {$n}: unknown source \"{$source}\". Use applicant.full_name, field:<key of a field on this template>, check:<key>=<value> or text:<fixed text>.");
+                $fail("Entry {$n}: unknown source \"{$source}\". Use applicant.full_name, applicant.email, field:<key of a field on this template>, check:<key>=<value>, circle:<key>=<value> or text:<fixed text>.");
+            }
+            if (str_starts_with($source, 'circle:') && (! isset($entry['w'], $entry['h']) || ! is_numeric($entry['w']) || ! is_numeric($entry['h']))) {
+                $fail("Entry {$n}: circle entries need a width \"w\" and height \"h\".");
             }
 
             if (isset($entry['format']) && ! in_array($entry['format'], self::DATE_FORMATS, true)) {
@@ -93,6 +99,8 @@ class PdfPrefillService
                 'format' => $entry['format'] ?? null,
                 'size' => isset($entry['size']) ? max(6, min(16, (float) $entry['size'])) : null,
                 'max_width' => isset($entry['max_width']) ? max(10, min(600, (float) $entry['max_width'])) : null,
+                'w' => isset($entry['w']) ? max(2, min(300, (float) $entry['w'])) : null,
+                'h' => isset($entry['h']) ? max(2, min(100, (float) $entry['h'])) : null,
             ], fn ($v) => $v !== null);
         }
 
@@ -129,8 +137,9 @@ class PdfPrefillService
                 $source === 'applicant.full_name' => $applicant->fullName(),
                 $source === 'applicant.first_name' => $applicant->first_name,
                 $source === 'applicant.last_name' => $applicant->last_name,
+                $source === 'applicant.email' => $applicant->email,
                 str_starts_with($source, 'text:') => substr($source, 5),
-                str_starts_with($source, 'check:') => $this->checkValue($source, $answers),
+                str_starts_with($source, 'check:'), str_starts_with($source, 'circle:') => $this->checkValue($source, $answers),
                 str_starts_with($source, 'field:') => $this->fieldValue($fields->get(substr($source, 6)), $answers[substr($source, 6)] ?? null, $format),
                 default => '',
             };
@@ -147,12 +156,13 @@ class PdfPrefillService
 
         return $this->build($template, function (string $source, ?string $format) use ($fields, $samples): string {
             if (str_starts_with($source, 'applicant.')) {
-                return ['applicant.full_name' => 'SAMPLE Applicant-Name', 'applicant.first_name' => 'SAMPLE', 'applicant.last_name' => 'Applicant-Name'][$source];
+                return ['applicant.full_name' => 'SAMPLE Applicant-Name', 'applicant.first_name' => 'SAMPLE',
+                    'applicant.last_name' => 'Applicant-Name', 'applicant.email' => 'sample@example.com'][$source];
             }
             if (str_starts_with($source, 'text:')) {
                 return substr($source, 5);
             }
-            if (str_starts_with($source, 'check:')) {
+            if (str_starts_with($source, 'check:') || str_starts_with($source, 'circle:')) {
                 return 'X';
             }
             $field = $fields->get(substr($source, 6));
@@ -178,6 +188,14 @@ class PdfPrefillService
             foreach ($byPage->get($p, []) as $entry) {
                 $text = $this->latin1(trim($resolve($entry['source'], $entry['format'] ?? null)));
                 if ($text === '') {
+                    continue;
+                }
+                // "Circle one" options: draw a box around the printed word.
+                if (str_starts_with($entry['source'], 'circle:')) {
+                    $pdf->SetDrawColor(0, 0, 0);
+                    $pdf->SetLineWidth(0.9);
+                    $pdf->Rect((float) $entry['x'], (float) $entry['y'], (float) $entry['w'], (float) $entry['h']);
+
                     continue;
                 }
                 $fontSize = (float) ($entry['size'] ?? 10);
@@ -243,7 +261,7 @@ class PdfPrefillService
      */
     private function checkValue(string $source, array $answers): string
     {
-        [$key, $expected] = explode('=', substr($source, 6), 2);
+        [$key, $expected] = explode('=', substr($source, strpos($source, ':') + 1), 2);
 
         return (string) ($answers[$key] ?? '') === $expected ? 'X' : '';
     }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\Documents\Rules\ReferenceRules;
+
 /*
 |--------------------------------------------------------------------------
 | Onboarding portal configuration
@@ -68,6 +70,13 @@ return [
         'initial' => 'Initial paperwork',
         'post_screening' => 'After screening clears',
         'day_one' => 'Day 1',
+    ],
+
+    /*
+    | Cross-field rules for specific forms, by template code.
+    */
+    'form_rules' => [
+        'REFERENCE' => ReferenceRules::class,
     ],
 
     'applicant_access' => [

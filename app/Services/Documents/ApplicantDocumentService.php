@@ -3,6 +3,8 @@
 namespace App\Services\Documents;
 
 use App\Enums\DocumentStatus;
+use App\Enums\ScanStatus;
+use App\Enums\SignatureMode;
 use App\Events\DocumentSubmitted;
 use App\Events\SupportingFileUploaded;
 use App\Models\ApplicantDocument;
@@ -15,6 +17,8 @@ use App\Services\Files\PrivateFileStore;
 use App\Services\Settings\SettingsService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -182,6 +186,7 @@ class ApplicantDocumentService
 
         DB::transaction(function () use ($document) {
             $wasCorrection = $document->status === DocumentStatus::CorrectionRequired;
+            $this->generateCompletedPdf($document);
             $this->states->transition($document, DocumentStatus::Submitted);
             $document->submitted_at = now();
             $document->save();
@@ -193,6 +198,53 @@ class ApplicantDocumentService
         });
 
         DocumentSubmitted::dispatch($document);
+    }
+
+    /**
+     * For online forms that need no applicant signature (e.g. the Reference
+     * form), type the answers onto the form's PDF and file it as the
+     * submitted document, named per the naming convention.
+     */
+    private function generateCompletedPdf(ApplicantDocument $document): void
+    {
+        $template = $document->template;
+        if (! $document->hasForm() || $document->signature_mode_snapshot !== SignatureMode::None || ! $template->hasPrefill()) {
+            return;
+        }
+
+        $applicant = $document->applicant;
+        $bytes = app(PdfPrefillService::class)->render($document);
+        $disk = (string) config('portal.storage.documents_disk', 'documents');
+        $path = 'applicants/'.$applicant->applicant_ref.'/'.Str::uuid().'.bin';
+        Storage::disk($disk)->put($path, $bytes, ['visibility' => 'private']);
+
+        $number = (int) $document->versions()->max('version_number') + 1;
+        $previous = $document->currentVersion;
+        $sha = hash('sha256', $bytes);
+
+        $version = $document->versions()->create([
+            'version_number' => $number,
+            'disk' => $disk,
+            'storage_path' => $path,
+            'original_filename' => 'completed online',
+            'generated_filename' => $this->names->forDocument($applicant, $template->document_type_label, 'pdf', now(), version: $number, pattern: $template->filename_pattern),
+            'mime_type' => 'application/pdf',
+            'size' => strlen($bytes),
+            'sha256' => $sha,
+            'scan_status' => ScanStatus::NotScanned,
+            'uploaded_by_type' => AuditEvent::ACTOR_SYSTEM,
+            'uploaded_by_id' => null,
+            'uploaded_at' => now(),
+        ]);
+
+        if ($previous) {
+            $previous->forceFill(['superseded_at' => now()])->save();
+        }
+
+        $document->current_version_id = $version->id;
+        $document->save();
+
+        $this->auditApplicant('document.generated', $document, ['version' => $number, 'sha256_prefix' => substr($sha, 0, 12)]);
     }
 
     private function refreshDraft(ApplicantDocument $document): void
