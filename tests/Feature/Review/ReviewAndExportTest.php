@@ -109,7 +109,7 @@ class ReviewAndExportTest extends TestCase
         $download = $this->get("/hr/applicants/{$applicant->public_id}/files/version/{$version->id}");
         $download->assertOk();
         $this->assertStringContainsString('attachment', $download->headers->get('Content-Disposition'));
-        $this->assertStringContainsString($version->generated_filename, $download->headers->get('Content-Disposition'));
+        $this->assertStringContainsString(rawurlencode($version->generated_filename), $download->headers->get('Content-Disposition'));
         $this->assertSame('nosniff', $download->headers->get('X-Content-Type-Options'));
         $this->assertSame('%PDF', substr($download->streamedContent(), 0, 4));
 
@@ -179,7 +179,7 @@ class ReviewAndExportTest extends TestCase
             $this->assertStringStartsNotWith('/', $name);
             $this->assertStringNotContainsString('Other', $name);
             $this->assertStringNotContainsString('Person', $name);
-            $this->assertMatchesRegularExpression('#^Evil_Ana_Packet_\d{8}/[A-Za-z0-9_./\-]+$#', $name);
+            $this->assertMatchesRegularExpression('#^Evil_Ana_Packet_\d{8}/[A-Za-z0-9_./, \-]+$#', $name);
         }
         $this->assertContains('Evil_Ana_Packet_'.now()->format('Ymd').'/MANIFEST.txt', $names);
         $this->assertCount(4, $names);

@@ -53,7 +53,7 @@ class ApplicantAccessTest extends TestCase
         $this->assertDatabaseHas('applicant_consents', ['applicant_id' => $applicant->id, 'consent_version_id' => $consent->id]);
         $this->assertNotNull($applicant->invitations()->first()->first_used_at);
         $this->assertDatabaseHas('audit_events', ['event' => 'applicant.signed_in', 'actor_type' => 'applicant', 'actor_id' => $applicant->applicant_ref]);
-        $this->assertSame(['version' => $consent->version], AuditEvent::where('event', 'applicant.consent_acknowledged')->first()->metadata);
+        $this->assertSame(['version' => $consent->version, 'notice' => 'disclosure'], AuditEvent::where('event', 'applicant.consent_acknowledged')->first()->metadata);
     }
 
     public function test_invalid_expired_and_revoked_codes_get_the_same_generic_error(): void

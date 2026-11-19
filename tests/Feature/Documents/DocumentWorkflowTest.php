@@ -103,7 +103,8 @@ class DocumentWorkflowTest extends TestCase
         $version = $doc->fresh()->currentVersion;
         $this->assertSame(1, $version->version_number);
         $this->assertSame('my scan (final).pdf', $version->original_filename);
-        $this->assertMatchesRegularExpression('/^OBrien-Smith_Jose_I-9_\d{8}\.pdf$/', $version->generated_filename);
+        // Client naming: "Last Name, First Name Document" (slash and apostrophe removed).
+        $this->assertSame('OBrien Smith, Jose I-9.pdf', $version->generated_filename);
         $this->assertStringNotContainsString('my scan', $version->storage_path);
         $this->assertStringEndsWith('.bin', $version->storage_path);
         $this->assertSame(64, strlen($version->sha256));
@@ -134,7 +135,7 @@ class DocumentWorkflowTest extends TestCase
 
         $file = $doc->fresh()->currentSupportingFiles()->first();
         $this->assertSame('photo_id', $file->requirement_key);
-        $this->assertStringContainsString('Photo-ID', $file->generated_filename);
+        $this->assertStringEndsWith(' - Photo ID.png', $file->generated_filename);
 
         $this->post("/portal/documents/{$doc->id}/submit", ['confirm' => '1'])->assertRedirect();
         $this->assertSame('submitted', $doc->fresh()->status->value);
@@ -180,7 +181,7 @@ class DocumentWorkflowTest extends TestCase
         $this->assertCount(2, $versions);
         $this->assertSame(2, $doc->fresh()->currentVersion->version_number);
         $this->assertNotNull($versions->firstWhere('version_number', 1)->superseded_at);
-        $this->assertStringContainsString('_v2.pdf', $doc->fresh()->currentVersion->generated_filename);
+        $this->assertStringEndsWith(' v2.pdf', $doc->fresh()->currentVersion->generated_filename);
         $this->assertDatabaseHas('audit_events', ['event' => 'document.uploaded']);
     }
 

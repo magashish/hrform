@@ -152,6 +152,8 @@ class TemplateController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:10000'],
             'active' => ['sometimes', 'boolean'],
             'form_edition' => ['nullable', 'string', 'max:60'],
+            'default_stage' => ['nullable', Rule::in(array_keys((array) config('portal.stages')))],
+            'filename_pattern' => ['nullable', 'string', 'max:150', 'regex:/^[A-Za-z0-9_\-\{\}, ]+$/'],
             'form_expires_on' => ['nullable', 'date'],
             'prefill_map' => ['nullable', 'string', 'max:20000'],
         ], ['code.regex' => 'Use upper-case letters, numbers, hyphens and underscores.']);
@@ -160,6 +162,8 @@ class TemplateController extends Controller
         $data['auto_assign'] = $request->boolean('auto_assign');
         $data['active'] = $request->boolean('active');
         $data['sort_order'] = (int) ($data['sort_order'] ?? 100);
+        $data['default_stage'] = $data['default_stage'] ?? 'initial';
+        $data['filename_pattern'] = trim((string) ($data['filename_pattern'] ?? '')) ?: null;
         $data['allowed_extensions'] = array_values(array_unique($data['allowed_extensions']));
         $data['supporting_requirements'] = $this->parseRequirements((string) ($data['supporting_requirements'] ?? ''));
         $data['prefill_map'] = app(PdfPrefillService::class)->normalizeMap($data['prefill_map'] ?? null, $template ?? new DocumentTemplate);

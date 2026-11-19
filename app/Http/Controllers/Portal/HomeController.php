@@ -13,14 +13,17 @@ class HomeController extends Controller
     public function __invoke(CurrentApplicant $current, ApplicantProgressService $progress, DocumentReadiness $readiness): View
     {
         $applicant = $current->get();
-        $documents = $applicant->documents()->with(['template', 'openCorrections'])->get()
+        $documents = $applicant->releasedDocuments()->with(['template', 'openCorrections'])->get()
             ->sortBy(fn ($d) => [$d->template->sort_order, $d->template->name])->values();
 
         return view('portal.home', [
             'applicant' => $applicant,
             'invitation' => $current->invitation(),
             'documents' => $documents,
-            'summary' => $progress->summary($applicant),
+            'summary' => $progress->summary($applicant, releasedOnly: true),
+            'notices' => $applicant->consents()->with('version')->get()->pluck('version')
+                ->filter(fn ($v) => $v && $v->active)->sortBy(fn ($v) => array_search($v->notice_key, array_keys((array) config('portal.notices')), true))->values(),
+            'moreToCome' => $applicant->documents()->whereNull('released_at')->exists(),
         ]);
     }
 }

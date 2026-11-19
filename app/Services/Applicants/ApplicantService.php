@@ -22,16 +22,16 @@ class ApplicantService
      * @param  array{first_name: string, last_name: string, email: string}  $data
      * @param  iterable<DocumentTemplate>  $templates  documents to assign
      */
-    public function create(array $data, User $createdBy, bool $sendInvitation = true, iterable $templates = []): Applicant
+    public function create(array $data, User $createdBy, bool $sendInvitation = true, iterable $templates = [], array $stages = []): Applicant
     {
-        $applicant = DB::transaction(function () use ($data, $createdBy, $templates) {
+        $applicant = DB::transaction(function () use ($data, $createdBy, $templates, $stages) {
             $applicant = new Applicant($data);
             $applicant->created_by = $createdBy->id;
             $applicant->status = ApplicantStatus::Invited;
             $applicant->save();
 
             $this->audit->record('applicant.created', $applicant, hrActor: $createdBy, applicantRef: $applicant->applicant_ref);
-            $this->assignments->assignMany($applicant, $templates, $createdBy);
+            $this->assignments->assignMany($applicant, $templates, $createdBy, $stages);
 
             return $applicant;
         });

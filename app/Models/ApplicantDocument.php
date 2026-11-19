@@ -19,6 +19,8 @@ use Illuminate\Support\Carbon;
  * @property int $applicant_id
  * @property int $document_template_id
  * @property bool $required
+ * @property string $stage
+ * @property Carbon|null $released_at
  * @property DocumentStatus $status
  * @property array<string, mixed>|null $form_data
  * @property InputMode $input_mode_snapshot
@@ -48,6 +50,8 @@ class ApplicantDocument extends Model
         'submitted_at' => null,
         'reviewed_at' => null,
         'reviewer_id' => null,
+        'stage' => 'initial',
+        'released_at' => null,
     ];
 
     protected function casts(): array
@@ -59,6 +63,7 @@ class ApplicantDocument extends Model
             'input_mode_snapshot' => InputMode::class,
             'signature_mode_snapshot' => SignatureMode::class,
             'assigned_at' => 'datetime',
+            'released_at' => 'datetime',
             'acknowledged_at' => 'datetime',
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
@@ -111,6 +116,16 @@ class ApplicantDocument extends Model
     public function openCorrections(): HasMany
     {
         return $this->hasMany(CorrectionRequest::class)->where('status', CorrectionRequest::STATUS_OPEN)->latest('id');
+    }
+
+    public function isReleased(): bool
+    {
+        return $this->released_at !== null;
+    }
+
+    public function stageLabel(): string
+    {
+        return (string) (config("portal.stages.{$this->stage}") ?? $this->stage);
     }
 
     public function needsMainUpload(): bool

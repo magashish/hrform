@@ -32,7 +32,7 @@
                 <a href="{{ route('hr.dashboard') }}" @class(['active' => request()->routeIs('hr.dashboard')])>Dashboard</a>
                 <a href="{{ route('hr.applicants.index') }}" @class(['active' => request()->routeIs('hr.applicants.*', 'hr.documents.*')])>Applicants</a>
                 <a href="{{ route('hr.templates.index') }}" @class(['active' => request()->routeIs('hr.templates.*')])>Documents</a>
-                <a href="{{ route('hr.consent.index') }}" @class(['active' => request()->routeIs('hr.consent.*')])>Disclosure</a>
+                <a href="{{ route('hr.consent.index') }}" @class(['active' => request()->routeIs('hr.consent.*')])>Notices</a>
                 <a href="{{ route('hr.settings') }}" @class(['active' => request()->routeIs('hr.settings')])>Settings</a>
                 <a href="{{ route('hr.system') }}" @class(['active' => request()->routeIs('hr.system')])>System</a>
                 <a href="{{ route('hr.users.index') }}" @class(['active' => request()->routeIs('hr.users.*')])>HR users</a>

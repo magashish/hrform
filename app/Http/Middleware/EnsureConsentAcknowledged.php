@@ -9,8 +9,8 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Applicants must acknowledge the current disclosure/consent version
- * before reaching any form or document.
+ * Applicants must acknowledge every active notice (Contingent Job Offer,
+ * FCRA summary of rights, privacy disclosure, ...) before any form.
  */
 class EnsureConsentAcknowledged
 {
@@ -18,9 +18,7 @@ class EnsureConsentAcknowledged
 
     public function handle(Request $request, Closure $next): Response
     {
-        $version = ConsentVersion::current();
-
-        if (! $version || ! $this->current->get()->hasAcknowledged($version)) {
+        if (ConsentVersion::activeNotices()->isEmpty() || $this->current->get()->pendingNotice() !== null) {
             return redirect()->route('portal.consent');
         }
 

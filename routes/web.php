@@ -55,10 +55,13 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('logout', [AccessController::class, 'logout'])->name('logout');
         Route::get('consent', [ConsentController::class, 'show'])->name('consent');
         Route::post('consent', [ConsentController::class, 'store'])->name('consent.store');
+        // Attachments of active notices are readable while acknowledging them.
+        Route::get('notices/{version}/attachment', [ConsentController::class, 'attachment'])->whereNumber('version')->name('notices.attachment');
 
         Route::middleware(EnsureConsentAcknowledged::class)->group(function () {
             Route::get('/', HomeController::class)->name('home');
             Route::get('complete', [DocumentController::class, 'complete'])->name('complete');
+            Route::get('notices/{version}', [ConsentController::class, 'view'])->whereNumber('version')->name('notices.show');
             Route::get('documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
             Route::put('documents/{document}/draft', [DocumentController::class, 'saveDraft'])->name('documents.draft');
             Route::post('documents/{document}/acknowledge', [DocumentController::class, 'acknowledge'])->name('documents.acknowledge');
@@ -110,6 +113,7 @@ Route::prefix('hr')->name('hr.')->middleware(['auth', EnsureHrUserIsActive::clas
 
         // Documents and review
         Route::post('applicants/{applicant}/documents', [DocumentReviewController::class, 'assign'])->name('documents.assign');
+        Route::post('applicants/{applicant}/release', [DocumentReviewController::class, 'releaseStage'])->name('documents.release');
         Route::get('applicants/{applicant}/documents/{document}', [DocumentReviewController::class, 'show'])->name('documents.show');
         Route::delete('applicants/{applicant}/documents/{document}', [DocumentReviewController::class, 'unassign'])->name('documents.unassign');
         Route::post('applicants/{applicant}/documents/{document}/approve', [DocumentReviewController::class, 'approve'])->name('documents.approve');
@@ -148,6 +152,7 @@ Route::prefix('hr')->name('hr.')->middleware(['auth', EnsureHrUserIsActive::clas
         Route::get('consent/create', [ConsentVersionController::class, 'create'])->name('consent.create');
         Route::post('consent', [ConsentVersionController::class, 'store'])->middleware('password.confirm')->name('consent.store');
         Route::get('consent/{consent}', [ConsentVersionController::class, 'show'])->whereNumber('consent')->name('consent.show');
+        Route::get('consent/{consent}/attachment', [ConsentVersionController::class, 'attachment'])->whereNumber('consent')->name('consent.attachment');
         Route::post('consent/{consent}/activate', [ConsentVersionController::class, 'activate'])->whereNumber('consent')->middleware('password.confirm')->name('consent.activate');
 
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings');

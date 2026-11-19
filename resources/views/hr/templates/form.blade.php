@@ -92,6 +92,23 @@
                 <p class="hint">E.g. "Photo ID (front)" or "Voided cheque | optional". Leave empty if none are needed.</p>
             </div>
 
+            <div class="grid-2">
+                <div class="field">
+                    <label for="default_stage">Usually needed</label>
+                    <select id="default_stage" name="default_stage">
+                        @foreach (config('portal.stages') as $stageKey => $stageLabel)
+                            <option value="{{ $stageKey }}" @selected(old('default_stage', $t?->default_stage ?? 'initial') === $stageKey)>{{ $stageLabel }}</option>
+                        @endforeach
+                    </select>
+                    <p class="hint">Pre-selected when assigning; HR can change it per applicant.</p>
+                </div>
+                <div class="field">
+                    <label for="filename_pattern">File name for uploads (optional)</label>
+                    <input id="filename_pattern" type="text" name="filename_pattern" value="{{ old('filename_pattern', $t?->filename_pattern) }}" maxlength="150" placeholder="{{ app(\App\Services\Settings\SettingsService::class)->get('filename_pattern') }}">
+                    <p class="hint">Leave empty to use the default from Settings. E.g. <code>{last_name}, {first_name} {document_type}</code> gives "Garcia, Maria {{ $t?->document_type_label ?: 'Ed Ver' }}.pdf".</p>
+                </div>
+            </div>
+
             <label class="check"><input type="hidden" name="required_by_default" value="0"><input type="checkbox" name="required_by_default" value="1" @checked(old('required_by_default', $t?->required_by_default ?? true))> Required by default</label>
             <label class="check"><input type="hidden" name="auto_assign" value="0"><input type="checkbox" name="auto_assign" value="1" @checked(old('auto_assign', $t?->auto_assign ?? false))> Pre-select for new applicants</label>
             <label class="check"><input type="hidden" name="active" value="0"><input type="checkbox" name="active" value="1" @checked(old('active', $t?->active ?? true))> Active</label>

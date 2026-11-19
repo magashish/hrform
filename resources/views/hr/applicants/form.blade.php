@@ -24,14 +24,29 @@
                 <p class="hint">Double-check this address: the invitation and sign-in codes are sent here.@if ($applicant) Changing it revokes any active invitation.@endif</p>
             </div>
 
+            <div class="field">
+                <label for="position_title">Position (optional)</label>
+                <input id="position_title" type="text" name="position_title" value="{{ old('position_title', $applicant?->position_title) }}" maxlength="150" autocomplete="off">
+                <p class="hint">Shown in the Contingent Job Offer notice where it uses {position_title}.</p>
+            </div>
+
             @unless ($applicant)
                 <fieldset class="field">
                     <legend>Documents to complete</legend>
+                    <p class="hint">Choose when each document is needed. Only "{{ config('portal.stages.initial') }}" documents are visible straight away; release later stages from the applicant's page when the time comes.</p>
                     @forelse ($templates as $t)
-                        <label class="check">
-                            <input type="checkbox" name="templates[]" value="{{ $t->id }}" @checked(in_array($t->id, old('templates', $templates->where('auto_assign', true)->pluck('id')->all())))>
-                            {{ $t->name }} <span class="muted">({{ $t->required_by_default ? 'required' : 'optional' }})</span>
-                        </label>
+                        <div class="template-pick">
+                            <label class="check">
+                                <input type="checkbox" name="templates[]" value="{{ $t->id }}" @checked(in_array($t->id, old('templates', $templates->where('auto_assign', true)->pluck('id')->all())))>
+                                {{ $t->name }} <span class="muted">({{ $t->required_by_default ? 'required' : 'optional' }})</span>
+                            </label>
+                            <label for="stage-{{ $t->id }}" class="sr-only">When is {{ $t->name }} needed?</label>
+                            <select id="stage-{{ $t->id }}" name="stages[{{ $t->id }}]">
+                                @foreach (config('portal.stages') as $stageKey => $stageLabel)
+                                    <option value="{{ $stageKey }}" @selected(old('stages.'.$t->id, $t->default_stage) === $stageKey)>{{ $stageLabel }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     @empty
                         <p class="muted">No document templates yet. <a href="{{ route('hr.templates.create') }}">Create one</a>, or add documents to this applicant later.</p>
                     @endforelse

@@ -54,9 +54,9 @@ return [
         'applicant.session_ended' => ['reason'],
 
         // Consent
-        'consent.version_created' => ['version'],
-        'consent.version_activated' => ['version'],
-        'applicant.consent_acknowledged' => ['version'],
+        'consent.version_created' => ['version', 'notice'],
+        'consent.version_activated' => ['version', 'notice'],
+        'applicant.consent_acknowledged' => ['version', 'notice'],
 
         // Templates and configuration
         'template.created' => ['template'],
@@ -68,7 +68,8 @@ return [
         'settings.updated' => ['keys'],
 
         // Documents (applicant actions)
-        'document.assigned' => ['template', 'required'],
+        'document.assigned' => ['template', 'required', 'stage', 'released'],
+        'documents.released' => ['stage', 'count'],
         'document.unassigned' => ['template'],
         'document.draft_saved' => ['template'],
         'document.acknowledged' => ['template'],

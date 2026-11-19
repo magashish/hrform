@@ -19,7 +19,10 @@ class ApplicantProgressService
             return;
         }
 
-        $documents = $applicant->documents()->get(['id', 'status', 'required']);
+        // Status reflects what the applicant has been asked to do so far
+        // (released documents); completion needs every required document.
+        $all = $applicant->documents()->get(['id', 'status', 'required', 'released_at']);
+        $documents = $all->whereNotNull('released_at');
         $required = $documents->where('required', true);
         $wasComplete = $applicant->completed_at !== null;
 
@@ -31,7 +34,8 @@ class ApplicantProgressService
             default => ApplicantStatus::InProgress,
         };
 
-        $allSubmitted = $required->isNotEmpty() && $required->every(fn ($d) => $d->status->isSubmittedOrLater());
+        $allRequired = $all->where('required', true);
+        $allSubmitted = $allRequired->isNotEmpty() && $allRequired->every(fn ($d) => $d->status->isSubmittedOrLater());
 
         $applicant->status = $status;
         if ($allSubmitted && ! $wasComplete) {
@@ -47,9 +51,10 @@ class ApplicantProgressService
     /**
      * @return array{total: int, done: int, percent: int}
      */
-    public function summary(Applicant $applicant): array
+    public function summary(Applicant $applicant, bool $releasedOnly = false): array
     {
-        $required = $applicant->documents()->where('required', true)->get(['id', 'status']);
+        $required = $applicant->documents()->where('required', true)
+            ->when($releasedOnly, fn ($q) => $q->whereNotNull('released_at'))->get(['id', 'status']);
         $done = $required->filter(fn ($d) => $d->status->isSubmittedOrLater())->count();
         $total = $required->count();
 

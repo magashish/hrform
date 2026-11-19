@@ -105,7 +105,7 @@ class DocumentController extends Controller
         $request->validate(['confirm' => ['accepted']], ['confirm.accepted' => 'Please confirm the information is accurate and complete.']);
         $this->service->submit($doc);
 
-        $remaining = $this->current->get()->documents()->where('required', true)->get()
+        $remaining = $this->current->get()->releasedDocuments()->where('required', true)->get()
             ->reject(fn ($d) => $d->status->isSubmittedOrLater())->count();
 
         return $remaining === 0
@@ -173,7 +173,7 @@ class DocumentController extends Controller
         abort_unless(Str::isUuid($id), 404);
 
         /** @var ApplicantDocument $doc */
-        $doc = $this->current->get()->documents()->with($with)->whereKey($id)->firstOrFail();
+        $doc = $this->current->get()->releasedDocuments()->with($with)->whereKey($id)->firstOrFail();
         $doc->setRelation('applicant', $this->current->get());
 
         return $doc;

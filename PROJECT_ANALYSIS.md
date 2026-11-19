@@ -308,3 +308,18 @@ The client does not want HR staff to use an authenticator app.
 **Tests:** 8 new tests (`ClientFormsTest`) plus updated review tests. 138 pass on PostgreSQL; on SQLite 135 pass and the 3 PostgreSQL-only tests are skipped. The real client SSA-89 was pre-filled through the app and checked visually.
 
 **Waiting on the client:** the remaining forms ("first of next week"), plus OPEN_QUESTIONS #20–#24.
+
+---
+
+## 11. Client request: forms, naming, stages and notices (2026-11-19)
+
+**Input:** a client email naming five forms (Ed Ver, Emp Ver, Emp Data, Reference, User), a required file-naming style, a question about assigning forms per hiring stage, and a requirement for the FCRA summary and a Contingent Job Offer at the start. **The five forms were not attached** (OPEN_QUESTIONS #25).
+
+| Request | Change |
+|---|---|
+| File naming "Last Name, First Name Ed Ver" | Each template can now have its own file-name pattern. The **global default is now `{last_name}, {first_name} {document_type}`**, so the document label becomes the suffix ("Garcia, Maria Ed Ver.pdf"). Patterns may contain commas and spaces; names are still transliterated and stripped of path or unsafe characters. Supporting files get " - Requirement", replacements " v2", and ZIP collisions "-2". The old underscore style is still available per template or in Settings. |
+| Two forms in one file (Ed Ver, Emp Ver) | Already supported: one template with a multi-page printable PDF and one upload. Completeness is checked at review (#27). |
+| Assign forms for a time period | **Stages:** "Initial paperwork", "After screening clears", "Day 1" (configurable in `config/portal.php`). Each template has a default stage, and HR picks the stage per document when creating an applicant or adding a document later. Only initial documents are visible straight away. **Release to applicant** on the applicant page shows a stage's documents and emails the applicant, or sends a new invitation if theirs has expired (progress kept). Held documents are invisible and inaccessible to the applicant (404). Status reflects released documents; the packet completes only when every required document is submitted. |
+| FCRA summary + Contingent Job Offer first | **Notices:** the single disclosure became versioned notice types: Contingent Job Offer → FCRA Summary of Rights → Disclosure and consent (order configurable). Each is shown on its own page ("step 1 of 3") and acknowledged before any form; a type with no active version is skipped. Text supports {first_name}, {last_name}, {full_name} and {position_title} (new optional applicant field), always HTML-escaped. Each version can include a PDF (e.g. the CFPB summary). Applicants can re-read acknowledged notices from their home page. HR manages them under **Notices**. |
+
+**Tests:** 8 new stage/notice tests plus naming tests. 148 pass on PostgreSQL; on SQLite 145 pass and the 3 PostgreSQL-only tests are skipped. Verified end-to-end in a browser: HR creates an applicant with per-document stages, the applicant goes through the 3 notices on a phone, HR releases "After screening clears" and the applicant sees the new documents.

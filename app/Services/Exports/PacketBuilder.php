@@ -83,7 +83,7 @@ class PacketBuilder
 
             if ($document->hasForm() && $document->form_data) {
                 $html = $this->formAnswersHtml($applicant, $document);
-                $name = $this->names->forDocument($applicant, $document->template->document_type_label.'-FormAnswers', 'html', $document->submitted_at ?? now());
+                $name = $this->names->forDocument($applicant, $document->template->document_type_label.' Form Answers', 'html', $document->submitted_at ?? now(), pattern: $document->template->filename_pattern);
                 $entry = $folder.'/'.$this->names->unique($name, $taken);
                 $zip->addFromString($entry, $html);
                 $manifest[] = hash('sha256', $html).'  '.$entry;

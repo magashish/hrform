@@ -21,31 +21,39 @@ class FilenameGenerator
 {
     public function __construct(private readonly SettingsService $settings) {}
 
-    public function forDocument(Applicant $applicant, string $documentType, string $extension, DateTimeInterface $date, ?string $requirement = null, int $version = 1): string
+    /**
+     * @param  string|null  $pattern  per-template pattern; falls back to the global setting
+     */
+    public function forDocument(Applicant $applicant, string $documentType, string $extension, DateTimeInterface $date, ?string $requirement = null, int $version = 1, ?string $pattern = null): string
     {
-        $pattern = (string) $this->settings->get('filename_pattern');
+        $pattern = trim((string) ($pattern ?: $this->settings->get('filename_pattern')));
         $dateFormat = (string) $this->settings->get('filename_date_format');
 
+        // Patterns written with spaces (e.g. "{last_name}, {first_name} {document_type}")
+        // keep spaces inside names; others join words with hyphens.
+        $spaced = str_contains($pattern, ' ');
+        $sep = $spaced ? ' ' : '_';
+
         $tokens = [
-            '{last_name}' => $this->token($applicant->last_name),
-            '{first_name}' => $this->token($applicant->first_name),
-            '{document_type}' => $this->token($documentType),
-            '{date}' => $this->token(Carbon::instance($date)->timezone(config('app.display_timezone'))->format($dateFormat)),
-            '{requirement}' => $this->token((string) $requirement),
+            '{last_name}' => $this->token($applicant->last_name, $spaced),
+            '{first_name}' => $this->token($applicant->first_name, $spaced),
+            '{document_type}' => $this->token($documentType, $spaced),
+            '{date}' => $this->token(Carbon::instance($date)->timezone(config('app.display_timezone'))->format($dateFormat), $spaced),
+            '{requirement}' => $this->token((string) $requirement, $spaced),
         ];
 
         $name = strtr($pattern, $tokens);
 
         // Supporting files always carry their requirement, even if the pattern omits it.
         if ($requirement !== null && ! str_contains($pattern, '{requirement}')) {
-            $name .= '_'.$tokens['{requirement}'];
+            $name .= ($spaced ? ' - ' : '_').$tokens['{requirement}'];
         }
 
         if ($version > 1) {
-            $name .= '_v'.$version;
+            $name .= $sep.'v'.$version;
         }
 
-        return $this->finalize($name, $extension);
+        return $this->finalize($name, $extension, $spaced);
     }
 
     /**
@@ -70,7 +78,7 @@ class FilenameGenerator
         return $candidate;
     }
 
-    public function token(string $value): string
+    public function token(string $value, bool $keepSpaces = false): string
     {
         if (class_exists(Normalizer::class)) {
             $value = Normalizer::normalize($value, Normalizer::FORM_KC) ?: $value;
@@ -82,6 +90,14 @@ class FilenameGenerator
         }
 
         $value = Str::ascii($value);
+
+        if ($keepSpaces) {
+            $value = preg_replace('/[^A-Za-z0-9\-\s]/', '', $value) ?? '';
+            $value = preg_replace('/\s+/', ' ', $value) ?? '';
+
+            return mb_substr(trim($value, ' -'), 0, 40);
+        }
+
         $value = preg_replace('/\s+/', '-', trim($value)) ?? '';
         $value = preg_replace('/[^A-Za-z0-9\-]/', '', $value) ?? '';
         $value = preg_replace('/-{2,}/', '-', $value) ?? '';
@@ -89,12 +105,22 @@ class FilenameGenerator
         return mb_substr(trim($value, '-'), 0, 40);
     }
 
-    private function finalize(string $name, string $extension): string
+    private function finalize(string $name, string $extension, bool $spaced = false): string
     {
-        $name = preg_replace('/[^A-Za-z0-9_\-]/', '', $name) ?? '';
-        $name = preg_replace('/_{2,}/', '_', $name) ?? '';
-        $name = trim($name, '_-');
-        $name = substr($name, 0, 150);
+        if ($spaced) {
+            // Letters, digits, spaces, commas, hyphens and underscores only: no
+            // path separators, dots or control characters.
+            $name = preg_replace('/[^A-Za-z0-9 ,_\-]/', '', $name) ?? '';
+            $name = preg_replace('/\s*,\s*/', ', ', $name) ?? '';
+            $name = preg_replace('/,(\s*,)+/', ',', $name) ?? '';
+            $name = preg_replace('/ {2,}/', ' ', $name) ?? '';
+            $name = trim($name, ' ,_-');
+        } else {
+            $name = preg_replace('/[^A-Za-z0-9_\-]/', '', $name) ?? '';
+            $name = preg_replace('/_{2,}/', '_', $name) ?? '';
+            $name = trim($name, '_-');
+        }
+        $name = rtrim(substr($name, 0, 150), ' ,');
 
         if ($name === '') {
             $name = 'document';

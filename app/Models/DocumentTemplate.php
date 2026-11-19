@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $form_edition
  * @property Carbon|null $form_expires_on
  * @property list<array<string, mixed>>|null $prefill_map
+ * @property string $default_stage
  * @property int $sort_order
  * @property bool $active
  */
@@ -45,7 +46,7 @@ class DocumentTemplate extends Model
         'code', 'name', 'document_type_label', 'description', 'instructions', 'input_mode',
         'signature_mode', 'required_by_default', 'auto_assign', 'allowed_extensions', 'max_size_kb',
         'supporting_requirements', 'filename_pattern', 'sort_order', 'active',
-        'form_edition', 'form_expires_on', 'prefill_map',
+        'form_edition', 'form_expires_on', 'prefill_map', 'default_stage',
     ];
 
     /** @var array<string, mixed> */
@@ -60,6 +61,7 @@ class DocumentTemplate extends Model
         'form_edition' => null,
         'form_expires_on' => null,
         'prefill_map' => null,
+        'default_stage' => 'initial',
         'required_by_default' => true,
         'auto_assign' => false,
         'sort_order' => 100,

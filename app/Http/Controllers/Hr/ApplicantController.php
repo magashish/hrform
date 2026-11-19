@@ -76,6 +76,7 @@ class ApplicantController extends Controller
             $request->user(),
             $request->boolean('send_invitation'),
             $templates,
+            array_map('strval', (array) $request->validated('stages', [])),
         );
 
         return redirect()->route('hr.applicants.show', $applicant)->with('status',

@@ -73,9 +73,9 @@ trait PortalHelpers
         return $invitation;
     }
 
-    protected function assign(Applicant $applicant, DocumentTemplate $template, ?bool $required = null): ApplicantDocument
+    protected function assign(Applicant $applicant, DocumentTemplate $template, ?bool $required = null, ?string $stage = null): ApplicantDocument
     {
-        return app(AssignmentService::class)->assign($applicant, $template, User::findOrFail($applicant->created_by), $required);
+        return app(AssignmentService::class)->assign($applicant, $template, User::findOrFail($applicant->created_by), $required, $stage);
     }
 
     protected function pdf(string $name = 'signed.pdf', string $extra = ''): UploadedFile

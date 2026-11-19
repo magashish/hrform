@@ -4,6 +4,7 @@ namespace App\Http\Requests\Hr;
 
 use App\Models\Applicant;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ApplicantRequest extends FormRequest
 {
@@ -25,7 +26,10 @@ class ApplicantRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'max:254', 'email:strict'],
+            'position_title' => ['nullable', 'string', 'max:150'],
             'send_invitation' => ['sometimes', 'boolean'],
+            'stages' => ['sometimes', 'array'],
+            'stages.*' => [Rule::in(array_keys((array) config('portal.stages')))],
         ];
     }
 
@@ -39,10 +43,13 @@ class ApplicantRequest extends FormRequest
     }
 
     /**
-     * @return array{first_name: string, last_name: string, email: string}
+     * @return array{first_name: string, last_name: string, email: string, position_title: ?string}
      */
     public function applicantData(): array
     {
-        return $this->safe()->only(['first_name', 'last_name', 'email']);
+        $data = $this->safe()->only(['first_name', 'last_name', 'email', 'position_title']);
+        $data['position_title'] = trim((string) ($data['position_title'] ?? '')) ?: null;
+
+        return $data;
     }
 }

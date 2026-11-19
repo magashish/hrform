@@ -26,9 +26,9 @@ A secure, temporary portal where HR invites applicants and new hires to complete
 
 **HR** (`/hr`): sign in with password, then enter the 6-digit code emailed to you, then:
 
-1. **Disclosure**: create and activate the consent text applicants must accept.
+1. **Notices**: create and activate the Contingent Job Offer, FCRA summary of rights and disclosure. Applicants acknowledge each one, in order, before any form.
 2. **Documents**: set up templates (online form, upload, or acknowledgement; wet signature or none; accepted file types; supporting files; printable blank PDF; official edition and expiry date). I-9 and SSA-89 come pre-configured per the client's guidance: both signed by hand. The SSA-89 asks for name, DOB and SSN online and gives the applicant a pre-filled copy to print and sign. Upload the client's SSA-89 and the current official I-9 PDF on these templates.
-3. **Applicants → Add applicant**: name, email and documents. A 7-day invitation is emailed automatically.
+3. **Applicants → Add applicant**: name, email, optional position, and the documents with *when* each is needed (Initial paperwork / After screening clears / Day 1). A 7-day invitation is emailed automatically. Later stages stay hidden until you click **Release to applicant**.
 4. Track progress, review each document (approve or request a correction), download files or a ZIP, then **Mark as transferred**. The packet is deleted after the retention period (default 60 days).
 5. **Send new invitation** at any time if the applicant needs more time; their progress is kept.
 

@@ -19,6 +19,7 @@ use Illuminate\Support\Str;
  * @property string $first_name
  * @property string $last_name
  * @property string $email
+ * @property string|null $position_title
  * @property ApplicantStatus $status
  * @property int $created_by
  * @property Carbon|null $consented_at
@@ -35,11 +36,12 @@ class Applicant extends Model
     use HasFactory;
 
     /** @var list<string> */
-    protected $fillable = ['first_name', 'last_name', 'email'];
+    protected $fillable = ['first_name', 'last_name', 'email', 'position_title'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
         'status' => 'invited',
+        'position_title' => null,
         'consented_at' => null,
         'completed_at' => null,
         'transferred_at' => null,
@@ -116,6 +118,26 @@ class Applicant extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(ApplicantDocument::class);
+    }
+
+    /**
+     * Documents the applicant can see and work on (released stages only).
+     *
+     * @return HasMany<ApplicantDocument, $this>
+     */
+    public function releasedDocuments(): HasMany
+    {
+        return $this->hasMany(ApplicantDocument::class)->whereNotNull('released_at');
+    }
+
+    /**
+     * The first active notice this applicant has not yet acknowledged.
+     */
+    public function pendingNotice(): ?ConsentVersion
+    {
+        $acknowledged = $this->consents()->pluck('consent_version_id')->all();
+
+        return ConsentVersion::activeNotices()->first(fn (ConsentVersion $v) => ! in_array($v->id, $acknowledged, true));
     }
 
     public function hasAcknowledged(ConsentVersion $version): bool

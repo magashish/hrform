@@ -197,3 +197,7 @@ legend { font-weight: 600; margin-bottom: 6px; }
 tr.superseded td { color: var(--muted); }
 h3 { font-size: 1.05rem; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; }
+.stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0 8px; }
+.stage-head h3 { margin: 0; }
+.template-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--border); padding: 4px 0; }
+.template-pick select { width: auto; }

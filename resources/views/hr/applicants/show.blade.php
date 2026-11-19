@@ -8,7 +8,7 @@
     <div class="page-header">
         <div>
             <h1>{{ $applicant->fullName() }}</h1>
-            <p class="muted">{{ $applicant->email }} · @include('partials.status-badge', ['status' => $applicant->status])
+            <p class="muted">{{ $applicant->email }}{{ $applicant->position_title ? ' · '.$applicant->position_title : '' }} · @include('partials.status-badge', ['status' => $applicant->status])
                 @if ($applicant->legal_hold) <span class="badge badge-warn">Legal hold</span> @endif
             </p>
         </div>
@@ -27,31 +27,52 @@
             @if ($documents->isEmpty())
                 <p class="muted">No documents assigned yet.</p>
             @else
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th scope="col">Document</th><th scope="col">Status</th><th scope="col">Files</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
-                        <tbody>
-                        @foreach ($documents as $doc)
-                            <tr>
-                                <td>
-                                    <a href="{{ route('hr.documents.show', [$applicant, $doc]) }}">{{ $doc->template->name }}</a>
-                                    <br><span class="muted small">{{ $doc->required ? 'Required' : 'Optional' }} · {{ $doc->signature_mode_snapshot->label() }}</span>
-                                </td>
-                                <td>@include('partials.status-badge', ['status' => $doc->status])</td>
-                                <td>{{ ($doc->currentVersion ? 1 : 0) + $doc->currentSupportingFiles->count() }}</td>
-                                <td class="right">
-                                    @if ($doc->status->value === 'not_started')
-                                        <form method="POST" action="{{ route('hr.documents.unassign', [$applicant, $doc]) }}" class="inline">
-                                            @csrf @method('DELETE')
-                                            <button type="submit" class="link-button">Remove</button>
-                                        </form>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                @foreach (config('portal.stages') as $stageKey => $stageLabel)
+                    @php($inStage = $documents->where('stage', $stageKey))
+                    @continue($inStage->isEmpty())
+                    @php($held = $inStage->whereNull('released_at')->count())
+                    <div class="stage-head">
+                        <h3>{{ $stageLabel }}</h3>
+                        @if ($held > 0)
+                            <span class="badge badge-warn">{{ $held }} held</span>
+                            @can('invite', $applicant)
+                                <form method="POST" action="{{ route('hr.documents.release', $applicant) }}" class="inline">
+                                    @csrf
+                                    <input type="hidden" name="stage" value="{{ $stageKey }}">
+                                    <button type="submit" class="button button-small">Release to applicant</button>
+                                </form>
+                            @endcan
+                        @else
+                            <span class="badge badge-ok">Released</span>
+                        @endif
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th scope="col">Document</th><th scope="col">Status</th><th scope="col">Files</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                            <tbody>
+                            @foreach ($inStage as $doc)
+                                <tr>
+                                    <td>
+                                        <a href="{{ route('hr.documents.show', [$applicant, $doc]) }}">{{ $doc->template->name }}</a>
+                                        <br><span class="muted small">{{ $doc->required ? 'Required' : 'Optional' }} · {{ $doc->signature_mode_snapshot->label() }}{{ $doc->isReleased() ? '' : ' · not yet visible to applicant' }}</span>
+                                    </td>
+                                    <td>@include('partials.status-badge', ['status' => $doc->status])</td>
+                                    <td>{{ ($doc->currentVersion ? 1 : 0) + $doc->currentSupportingFiles->count() }}</td>
+                                    <td class="right">
+                                        @if ($doc->status->value === 'not_started')
+                                            <form method="POST" action="{{ route('hr.documents.unassign', [$applicant, $doc]) }}" class="inline">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="link-button">Remove</button>
+                                            </form>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endforeach
+                <p class="hint">Held documents stay hidden from the applicant until you release their stage. Releasing emails the applicant (and sends a new invitation if theirs has expired).</p>
             @endif
 
             @if ($assignable->isNotEmpty() && ! $applicant->transferred_at)
@@ -63,7 +84,14 @@
                             <option value="{{ $t->id }}">{{ $t->name }}</option>
                         @endforeach
                     </select>
+                    <label for="assign_stage" class="sr-only">Stage</label>
+                    <select id="assign_stage" name="stage">
+                        @foreach (config('portal.stages') as $stageKey => $stageLabel)
+                            <option value="{{ $stageKey }}">{{ $stageLabel }}</option>
+                        @endforeach
+                    </select>
                     <label class="check"><input type="hidden" name="required" value="0"><input type="checkbox" name="required" value="1" checked> Required</label>
+                    <label class="check"><input type="hidden" name="release_now" value="0"><input type="checkbox" name="release_now" value="1"> Make available now</label>
                     <button type="submit" class="button button-small">Add document</button>
                 </form>
             @endif
@@ -107,11 +135,11 @@
                 </details>
             @endif
 
-            <h3 class="mt">Disclosure</h3>
+            <h3 class="mt">Notices acknowledged</h3>
             @forelse ($applicant->consents as $c)
-                <p class="small">Acknowledged version <strong>{{ $c->version->version }}</strong> on {{ $c->acknowledged_at->timezone($tz)->format('Y-m-d H:i T') }}</p>
+                <p class="small">{{ $c->version->noticeLabel() }}: version <strong>{{ $c->version->version }}</strong> on {{ $c->acknowledged_at->timezone($tz)->format('Y-m-d H:i T') }}</p>
             @empty
-                <p class="muted small">Not yet acknowledged.</p>
+                <p class="muted small">None yet.</p>
             @endforelse
         </section>
     </div>

@@ -39,6 +39,37 @@ return [
         'expiry_days' => (int) env('INVITATION_EXPIRY_DAYS', 7),
     ],
 
+    /*
+    | Notices every applicant reads and acknowledges, in this order, before any
+    | form. Each is versioned and managed by HR (HR → Notices). A notice with
+    | no active version is skipped. Placeholders allowed in the text:
+    | {first_name} {last_name} {full_name} {position_title}
+    */
+    'notices' => [
+        'contingent_offer' => [
+            'label' => 'Contingent job offer',
+            'acknowledgement' => 'I have read and understand this contingent job offer and the reason I am being asked to complete new-hire paperwork.',
+        ],
+        'fcra_summary' => [
+            'label' => 'Summary of your rights under the Fair Credit Reporting Act',
+            'acknowledgement' => 'I acknowledge that I have received A Summary of Your Rights Under the Fair Credit Reporting Act.',
+        ],
+        'disclosure' => [
+            'label' => 'Disclosure and consent',
+            'acknowledgement' => 'I have read and understand this disclosure, and I consent to the collection and use of my information as described.',
+        ],
+    ],
+
+    /*
+    | When each assigned document is made available to the applicant. Documents
+    | in later stages stay hidden until HR releases that stage.
+    */
+    'stages' => [
+        'initial' => 'Initial paperwork',
+        'post_screening' => 'After screening clears',
+        'day_one' => 'Day 1',
+    ],
+
     'applicant_access' => [
         // Email one-time passcode used after the invitation code (OPEN_QUESTIONS #7).
         'otp_ttl_minutes' => (int) env('APPLICANT_OTP_TTL_MINUTES', 10),
@@ -56,7 +87,7 @@ return [
 
     'files' => [
         // Default generated filename pattern (OPEN_QUESTIONS #6). Editable in HR settings.
-        'filename_pattern' => env('FILENAME_PATTERN', '{last_name}_{first_name}_{document_type}_{date}'),
+        'filename_pattern' => env('FILENAME_PATTERN', '{last_name}, {first_name} {document_type}'),
         'filename_date_format' => env('FILENAME_DATE_FORMAT', 'Ymd'),
 
         // Global upload allowlist. Templates may narrow it, never widen it.

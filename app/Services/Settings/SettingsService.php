@@ -28,8 +28,8 @@ class SettingsService
         return [
             'filename_pattern' => [
                 'group' => 'Files', 'label' => 'Filename pattern',
-                'help' => 'Tokens: {last_name} {first_name} {document_type} {date} {requirement}. Example: {last_name}_{first_name}_{document_type}_{date}',
-                'rules' => ['required', 'string', 'max:150', 'regex:/^[A-Za-z0-9_\-\{\} ]+$/'],
+                'help' => 'Tokens: {last_name} {first_name} {document_type} {date} {requirement}. Examples: {last_name}_{first_name}_{document_type}_{date} or {last_name}, {first_name} {document_type}. Each document template can override this.',
+                'rules' => ['required', 'string', 'max:150', 'regex:/^[A-Za-z0-9_\-\{\}, ]+$/'],
                 'default' => config('portal.files.filename_pattern'),
             ],
             'filename_date_format' => [
@@ -88,6 +88,15 @@ class SettingsService
                 'group' => 'Email wording', 'label' => 'Reminder email opening paragraph',
                 'rules' => ['required', 'string', 'max:2000'],
                 'default' => 'This is a friendly reminder that your onboarding paperwork is not yet complete.',
+            ],
+            'mail_release_subject' => [
+                'group' => 'Email wording', 'label' => 'New-documents email subject (when HR releases a stage)',
+                'rules' => ['required', 'string', 'max:150'], 'default' => 'More onboarding documents are ready for you',
+            ],
+            'mail_release_intro' => [
+                'group' => 'Email wording', 'label' => 'New-documents email opening paragraph',
+                'rules' => ['required', 'string', 'max:2000'],
+                'default' => 'Thank you for your patience. The next set of onboarding documents is now ready for you to complete.',
             ],
             'mail_correction_subject' => [
                 'group' => 'Email wording', 'label' => 'Correction-request email subject',
